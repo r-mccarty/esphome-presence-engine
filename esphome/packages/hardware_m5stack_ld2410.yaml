@@ -3,6 +3,7 @@
 
 # UART for LD2410 communication
 uart:
+  id: uart_bus
   tx_pin: GPIO17
   rx_pin: GPIO16
   baud_rate: 256000

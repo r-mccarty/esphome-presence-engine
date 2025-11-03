@@ -1,81 +1,48 @@
-# Bed Presence Engine Package
-# Configures the custom presence detection component
+# Bed Presence Engine Package - Phase 1
+# Simple z-score based presence detection
 
 binary_sensor:
   - platform: bed_presence_engine
     name: "Bed Occupied"
     id: bed_occupied
-    energy_sensor: ld2410_still_energy
-    occupied_threshold: 50
-    vacant_threshold: 30
-    debounce_occupied: 2000ms
-    debounce_vacant: 5000ms
+    energy_sensor: ld2410_still_energy  # Using still/static energy per LD2410 naming
+    k_on: 4.0   # Turn ON when z-score > 4.0 (4 std deviations)
+    k_off: 2.0  # Turn OFF when z-score < 2.0 (2 std deviations)
     state_reason:
       name: "Presence State Reason"
       id: presence_state_reason
 
-# Number inputs to allow threshold tuning from Home Assistant
+# Number inputs to allow threshold multiplier tuning from Home Assistant
+# Phase 1 spec: Persistent across reboots (restore_value: true)
 number:
   - platform: template
-    name: "Occupied Threshold"
-    id: occupied_threshold_input
-    min_value: 0
-    max_value: 100
-    step: 1
-    initial_value: 50
+    name: "k_on (ON Threshold Multiplier)"
+    id: k_on_input
+    min_value: 0.0
+    max_value: 10.0
+    step: 0.1
+    initial_value: 4.0
     optimistic: true
+    restore_value: true  # Phase 1 requirement
     mode: slider
     on_value:
       then:
         - lambda: |-
             auto engine = id(bed_occupied);
-            int vacant = id(vacant_threshold_input).state;
-            engine->update_thresholds((int)x, vacant);
+            engine->update_k_on(x);
 
   - platform: template
-    name: "Vacant Threshold"
-    id: vacant_threshold_input
-    min_value: 0
-    max_value: 100
-    step: 1
-    initial_value: 30
+    name: "k_off (OFF Threshold Multiplier)"
+    id: k_off_input
+    min_value: 0.0
+    max_value: 10.0
+    step: 0.1
+    initial_value: 2.0
     optimistic: true
+    restore_value: true  # Phase 1 requirement
     mode: slider
     on_value:
       then:
         - lambda: |-
             auto engine = id(bed_occupied);
-            int occupied = id(occupied_threshold_input).state;
-            engine->update_thresholds(occupied, (int)x);
-
-  - platform: template
-    name: "Debounce Occupied (ms)"
-    id: debounce_occupied_input
-    min_value: 0
-    max_value: 10000
-    step: 100
-    initial_value: 2000
-    optimistic: true
-    mode: box
-    on_value:
-      then:
-        - lambda: |-
-            auto engine = id(bed_occupied);
-            uint32_t vacant_ms = id(debounce_vacant_input).state;
-            engine->update_debounce_timers((uint32_t)x, vacant_ms);
-
-  - platform: template
-    name: "Debounce Vacant (ms)"
-    id: debounce_vacant_input
-    min_value: 0
-    max_value: 30000
-    step: 100
-    initial_value: 5000
-    optimistic: true
-    mode: box
-    on_value:
-      then:
-        - lambda: |-
-            auto engine = id(bed_occupied);
-            uint32_t occupied_ms = id(debounce_occupied_input).state;
-            engine->update_debounce_timers(occupied_ms, (uint32_t)x);
+            engine->update_k_off(x);

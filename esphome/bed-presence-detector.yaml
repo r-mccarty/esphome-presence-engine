@@ -10,6 +10,13 @@ esphome:
   friendly_name: ${friendly_name}
   comment: "Bed presence detection using LD2410 mmWave radar"
 
+# Load custom components from local directory
+external_components:
+  - source:
+      type: local
+      path: custom_components
+    components: [ bed_presence_engine ]
+
 # Include all package configurations
 packages:
   hardware: !include packages/hardware_m5stack_ld2410.yaml

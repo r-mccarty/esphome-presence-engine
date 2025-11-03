@@ -1,34 +1,34 @@
-# Calibration Services Package
+# Calibration Services Package - Phase 1
 # Provides ESPHome services for the Home Assistant calibration wizard
+# Phase 1: Placeholder services for future calibration implementation
 
 api:
   services:
     # Service: Start collecting calibration samples
+    # TODO Phase 3: Implement actual baseline data collection
     - service: start_calibration
       variables:
-        mode: string  # "occupied" or "vacant"
+        duration_s: int  # Duration in seconds to collect samples
       then:
         - logger.log:
-            format: "Starting calibration for mode: %s"
-            args: ['mode.c_str()']
-        # Additional calibration logic would go here
-        # For now, this is a placeholder for the calibration flow
+            format: "Starting calibration for %d seconds (placeholder)"
+            args: ['duration_s']
+        # Phase 3: Will implement energy sample collection here
 
     # Service: Stop calibration and compute thresholds
+    # TODO Phase 3: Implement MAD-based threshold calculation
     - service: stop_calibration
       then:
-        - logger.log: "Stopping calibration and computing thresholds"
-        # Calibration computation logic would go here
+        - logger.log: "Stopping calibration (placeholder)"
+        # Phase 3: Will compute μ and σ from collected samples
 
-    # Service: Reset to factory defaults
+    # Service: Reset to factory defaults (Phase 1 parameters)
     - service: reset_to_defaults
       then:
-        - logger.log: "Resetting to factory defaults"
+        - logger.log: "Resetting to Phase 1 factory defaults"
         - lambda: |-
             auto engine = id(bed_occupied);
-            engine->update_thresholds(50, 30);
-            engine->update_debounce_timers(2000, 5000);
-            id(occupied_threshold_input).publish_state(50);
-            id(vacant_threshold_input).publish_state(30);
-            id(debounce_occupied_input).publish_state(2000);
-            id(debounce_vacant_input).publish_state(5000);
+            engine->update_k_on(4.0);
+            engine->update_k_off(2.0);
+            id(k_on_input).publish_state(4.0);
+            id(k_off_input).publish_state(2.0);

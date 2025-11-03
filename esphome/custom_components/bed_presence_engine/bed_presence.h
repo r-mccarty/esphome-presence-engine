@@ -9,22 +9,13 @@ namespace esphome {
 namespace bed_presence_engine {
 
 /**
- * Presence engine states
- */
-enum PresenceState {
-  VACANT,
-  DEBOUNCING_OCCUPIED,
-  OCCUPIED,
-  DEBOUNCING_VACANT
-};
-
-/**
- * BedPresenceEngine Component
+ * BedPresenceEngine Component - Phase 1 Implementation
  *
- * Implements a stateful presence detection engine with:
- * - Hysteresis-based threshold comparison
- * - Temporal debouncing with separate timers for occupied/vacant
- * - State transition reason tracking for transparency
+ * Implements simple z-score based presence detection:
+ * - Calculates z-score: z = (energy - μ) / σ
+ * - Compares against threshold multipliers k_on and k_off
+ * - No debouncing or state machine (intentionally "twitchy")
+ * - Validates the core statistical significance concept
  */
 class BedPresenceEngine : public Component, public binary_sensor::BinarySensor {
  public:
@@ -34,37 +25,40 @@ class BedPresenceEngine : public Component, public binary_sensor::BinarySensor {
 
   // Configuration setters
   void set_energy_sensor(sensor::Sensor *sensor) { energy_sensor_ = sensor; }
-  void set_occupied_threshold(int threshold) { occupied_threshold_ = threshold; }
-  void set_vacant_threshold(int threshold) { vacant_threshold_ = threshold; }
-  void set_debounce_occupied(uint32_t ms) { debounce_occupied_ms_ = ms; }
-  void set_debounce_vacant(uint32_t ms) { debounce_vacant_ms_ = ms; }
+  void set_k_on(float k) { k_on_ = k; }
+  void set_k_off(float k) { k_off_ = k; }
   void set_state_reason_sensor(text_sensor::TextSensor *sensor) { state_reason_sensor_ = sensor; }
 
-  // Public methods for calibration services
-  void update_thresholds(int occupied, int vacant);
-  void update_debounce_timers(uint32_t occupied_ms, uint32_t vacant_ms);
+  // Public methods for runtime updates from HA
+  void update_k_on(float k);
+  void update_k_off(float k);
 
  protected:
   // Input sensor
   sensor::Sensor *energy_sensor_{nullptr};
 
-  // Configuration
-  int occupied_threshold_{50};
-  int vacant_threshold_{30};
-  uint32_t debounce_occupied_ms_{2000};
-  uint32_t debounce_vacant_ms_{5000};
+  // Hardcoded baseline statistics (UPDATE THESE after baseline collection)
+  // TODO: Replace these placeholder values with actual baseline data from your LD2410 sensor
+  // To collect baseline: Run sensor for 30-60s in empty bed, observe moving/static energy values
+  float mu_move_{100.0f};   // Mean moving energy (placeholder)
+  float sigma_move_{20.0f}; // Std dev moving energy (placeholder)
+  float mu_stat_{100.0f};   // Mean static energy (placeholder)
+  float sigma_stat_{20.0f}; // Std dev static energy (placeholder)
 
-  // State machine
-  PresenceState state_{VACANT};
-  uint32_t debounce_start_time_{0};
+  // Threshold multipliers (k_on > k_off for hysteresis)
+  float k_on_{4.0f};   // Turn ON when z > k_on (default: 4 std deviations)
+  float k_off_{2.0f};  // Turn OFF when z < k_off (default: 2 std deviations)
+
+  // Current state (simple boolean for Phase 1)
+  bool is_occupied_{false};
 
   // Output sensors
   text_sensor::TextSensor *state_reason_sensor_{nullptr};
 
   // Internal methods
+  float calculate_z_score(float energy, float mu, float sigma);
   void process_energy_reading(float energy);
-  void transition_to_state(PresenceState new_state, const char *reason);
-  bool is_debounce_complete(uint32_t debounce_ms);
+  void publish_reason(const char *reason);
 };
 
 }  // namespace bed_presence_engine
