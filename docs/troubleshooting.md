@@ -52,6 +52,30 @@
 3. Verify entity IDs match between dashboard and your device
 4. Check Home Assistant logs for errors
 
+### Codespaces build fails with `unable to find user vscode`
+
+**Symptoms**: When launching a GitHub Codespace that uses a custom devcontainer image, the build fails and drops into a recovery container with the log message `unable to find user vscode: no matching entries in passwd file`.
+
+**Solutions**:
+1. Update your `.devcontainer/Dockerfile` to create a non-root user named `vscode` (UID/GID `1000` by default) and install `sudo`. Example for Debian-based images:
+   ```dockerfile
+   FROM debian:bullseye-slim
+   ENV DEBIAN_FRONTEND=noninteractive
+   RUN apt-get update \
+       && apt-get -y install --no-install-recommends sudo git curl \
+       && rm -rf /var/lib/apt/lists/*
+   ARG USERNAME=vscode
+   ARG USER_UID=1000
+   ARG USER_GID=$USER_UID
+   RUN groupadd --gid $USER_GID $USERNAME \
+       && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME \
+       && echo "$USERNAME ALL=(root) NOPASSWD:ALL" > /etc/sudoers.d/$USERNAME \
+       && chmod 0440 /etc/sudoers.d/$USERNAME
+   USER $USERNAME
+   ```
+2. Alternatively, if you are using a pre-built image that already contains a non-root user (e.g., `node`), set `"remoteUser"` in `.devcontainer/devcontainer.json` to that user.
+3. After applying either change, run **Codespaces: Rebuild Container** so the new user configuration is applied.
+
 ## Diagnostic Tools
 
 ### ESPHome Logs
