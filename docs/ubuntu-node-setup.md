@@ -11,20 +11,16 @@
 ## Network Configuration
 
 ### Local Network
-- **LAN IP**: 192.168.0.148 (Home Assistant instance)
+- **LAN IP**: Private network (192.168.x.x range)
 - **Network**: Behind router (not directly accessible from internet)
-- **WiFi Network**: TP-Link_BECC (2.4GHz)
-  - SSID: `TP-Link_BECC`
-  - Password: `20267872`
 
 ### Public Access via Cloudflare Tunnel
 
-**Home Assistant URL**: https://ha.hardwareos.com
-**SSH Access URL**: ssh.hardwareos.com
-
 The node uses Cloudflare Tunnel for secure external access:
-- Home Assistant: `ha.hardwareos.com` → `localhost:8123`
-- SSH: `ssh.hardwareos.com` → `localhost:22`
+- Home Assistant: `your-domain.com` → `localhost:8123`
+- SSH: `ssh.your-domain.com` → `localhost:22`
+
+**Note**: Domain names and tunnel configuration are stored on the node in `/etc/cloudflared/config.yml`
 
 ## SSH Access Configuration
 
@@ -40,13 +36,13 @@ sudo systemctl status cloudflared
 cat /etc/cloudflared/config.yml
 ```
 
-**Tunnel ingress configuration**:
+**Tunnel ingress configuration example**:
 ```yaml
 ingress:
-  - hostname: ha.hardwareos.com
+  - hostname: your-domain.com
     service: http://localhost:8123
 
-  - hostname: ssh.hardwareos.com
+  - hostname: ssh.your-domain.com
     service: ssh://localhost:22
 
   - service: http_status:404
@@ -68,10 +64,10 @@ sudo mv cloudflared-linux-amd64 /usr/local/bin/cloudflared
 **SSH Config** (~/.ssh/config):
 ```
 Host ubuntu-node
-  HostName ssh.hardwareos.com
-  User claude-temp
-  IdentityFile ~/.ssh/claude_temp_key
-  ProxyCommand cloudflared access ssh --hostname ssh.hardwareos.com
+  HostName ssh.your-domain.com
+  User your-username
+  IdentityFile ~/.ssh/your_key
+  ProxyCommand cloudflared access ssh --hostname ssh.your-domain.com
   StrictHostKeyChecking no
   UserKnownHostsFile /dev/null
 ```
@@ -83,36 +79,36 @@ ssh ubuntu-node
 
 Or directly:
 ```bash
-ssh -i ~/.ssh/claude_temp_key -o ProxyCommand="cloudflared access ssh --hostname ssh.hardwareos.com" claude-temp@ssh.hardwareos.com
+ssh -i ~/.ssh/your_key -o ProxyCommand="cloudflared access ssh --hostname ssh.your-domain.com" your-username@ssh.your-domain.com
 ```
 
 ## User Accounts
 
-### Temporary Development User
+### Development User Setup
 
-**Username**: `claude-temp`
-**UID**: 1001
-**Groups**: sudo, docker, dialout, ryan, users
-**Sudo Access**: Full passwordless sudo (NOPASSWD: ALL)
-**Home Directory**: `/home/claude-temp`
+**Username**: Varies per session (e.g., `claude-temp` for temporary access)
+**Groups**: sudo, docker, dialout
+**Sudo Access**: Full passwordless sudo (NOPASSWD: ALL) - for development only
+**Home Directory**: `/home/your-username`
 
 **Purpose**: Temporary user for development and testing. Should be removed after session.
 
-**SSH Public Key** (currently authorized):
-```
-ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKDRZryXjDWFa83HVEj1pU0icaZTu4TI9c63OSZscM5i claude-code-session
-```
+**SSH Key Setup**:
+- Generate SSH key pair on development machine
+- Add public key to `~/.ssh/authorized_keys` on node
+- Store private key securely
 
-**Cleanup instructions** (when done):
+**Cleanup instructions** (when session ends):
 ```bash
-sudo deluser claude-temp
-sudo rm -rf /home/claude-temp
+sudo deluser your-username
+sudo rm -rf /home/your-username
+# Remove SSH public key from authorized_keys
 ```
 
 ### Primary User
 
-**Username**: `ryan`
-**Home Directory**: `/home/ryan`
+**Username**: System owner
+**Home Directory**: Varies per installation
 **Home Assistant Config**: `/opt/homeassistant/config`
 
 ## Home Assistant Setup
@@ -148,30 +144,32 @@ cat /opt/homeassistant/config/configuration.yaml
 
 ### Web Access
 
-- **Local**: http://192.168.0.148:8123
-- **Public**: https://ha.hardwareos.com (via Cloudflare Tunnel)
+- **Local**: http://YOUR_NODE_IP:8123 (find IP via `ip addr` or router DHCP list)
+- **Public**: https://your-domain.com (via Cloudflare Tunnel)
 
 ### API Access
 
-**WebSocket API**: `ws://192.168.0.148:8123/api/websocket` (local)
+**WebSocket API**: `ws://YOUR_NODE_IP:8123/api/websocket` (local network)
 **Long-Lived Access Tokens**: Create via Profile → Security → Long-Lived Access Tokens
+
+**Note**: Store tokens securely and never commit them to git.
 
 ## ESPHome Development Environment
 
 ### Python Virtual Environment
 
-**Location**: `/home/claude-temp/esphome-venv`
+**Location**: `/home/your-username/esphome-venv` (or wherever you set up the venv)
 **Python Version**: 3.12.3
 **ESPHome Version**: 2025.10.4
 
 **Activate**:
 ```bash
-source /home/claude-temp/esphome-venv/bin/activate
+source ~/esphome-venv/bin/activate
 ```
 
 ### Repository Location
 
-**Path**: `/home/claude-temp/bed-presence-sensor`
+**Path**: Clone the repository to your preferred location (e.g., `~/bed-presence-sensor`)
 
 **Key directories**:
 - `esphome/` - Firmware source and configuration
@@ -183,10 +181,10 @@ source /home/claude-temp/esphome-venv/bin/activate
 
 ```bash
 # Navigate to project
-cd /home/claude-temp/bed-presence-sensor/esphome
+cd ~/bed-presence-sensor/esphome
 
 # Activate virtual environment
-source /home/claude-temp/esphome-venv/bin/activate
+source ~/esphome-venv/bin/activate
 
 # Compile firmware
 esphome compile bed-presence-detector.yaml
@@ -208,28 +206,30 @@ esphome run bed-presence-detector.yaml --device /dev/ttyACM0
 **Device**: M5Stack Basic
 **Board**: m5stack-core-esp32
 **Chip**: ESP32-D0WDQ6-V3 (revision v3.1)
-**MAC Address**: 08:b6:1f:a5:6e:68
+**MAC Address**: Unique per device (viewable in ESPHome logs)
 **Flash Size**: 16MB
 
 ### USB Connection
 
-**Serial Device**: `/dev/ttyACM0`
+**Serial Device**: `/dev/ttyACM0` (may vary - check with `ls /dev/tty*`)
 **USB Vendor ID**: 1a86 (QinHeng Electronics)
 **USB Product ID**: 55d4 (USB Single Serial)
 **Baud Rate**: 115200
 
 **Check connection**:
 ```bash
-ls -la /dev/ttyACM0
+ls -la /dev/ttyACM*
 lsusb | grep 1a86
 ```
 
 ### Network Configuration
 
-**WiFi Network**: TP-Link_BECC (2.4GHz)
-**IP Address**: 192.168.0.180
+**WiFi Network**: Configured in `secrets.yaml` (gitignored)
+**IP Address**: Assigned by DHCP (viewable in Home Assistant or router)
 **Hostname**: bed-presence-detector.local
 **mDNS**: Yes (ESPHome API on port 6053)
+
+**Note**: WiFi credentials are stored locally in `esphome/secrets.yaml` and should never be committed to git.
 
 ### LD2410 Sensor Configuration
 
@@ -268,18 +268,28 @@ lsusb | grep 1a86
 
 ## Secrets Configuration
 
-**File**: `/home/claude-temp/bed-presence-sensor/esphome/secrets.yaml`
-**Status**: Configured and working
+**File**: `esphome/secrets.yaml` (gitignored - never commit this file!)
 
+**Template** (use `esphome/secrets.yaml.example` as reference):
 ```yaml
-wifi_ssid: "TP-Link_BECC"
-wifi_password: "20267872"
-ap_password: "fallback-hotspot-12345"
-api_encryption_key: "BRbm1D2kW+xqWGEQIT3TDa+m/wKQdcVw+vOYF6zeloQ="
-ota_password: "bed-presence-ota-2024"
+wifi_ssid: "Your_WiFi_Network"
+wifi_password: "your_wifi_password"
+ap_password: "fallback-hotspot-password"  # Min 8 characters
+api_encryption_key: "generate_with_command_below"
+ota_password: "your_ota_password"
 ```
 
-**Note**: This file is gitignored and should not be committed.
+**Generate encryption key**:
+```bash
+python3 -c "import secrets; import base64; print(base64.b64encode(secrets.token_bytes(32)).decode())"
+```
+
+**Security Notes**:
+- This file contains sensitive credentials and is gitignored
+- Never commit `secrets.yaml` to version control
+- Store credentials securely (password manager recommended)
+- Use strong, unique passwords for `ap_password` and `ota_password`
+- The `api_encryption_key` must match what Home Assistant expects
 
 ## Development Workflow
 
@@ -287,15 +297,13 @@ ota_password: "bed-presence-ota-2024"
 
 ```bash
 ssh ubuntu-node
-# or
-ssh -i ~/.ssh/claude_temp_key -o ProxyCommand="cloudflared access ssh --hostname ssh.hardwareos.com" claude-temp@ssh.hardwareos.com
 ```
 
 ### 2. Navigate to Project
 
 ```bash
-cd /home/claude-temp/bed-presence-sensor/esphome
-source /home/claude-temp/esphome-venv/bin/activate
+cd ~/bed-presence-sensor/esphome
+source ~/esphome-venv/bin/activate
 ```
 
 ### 3. Make Code Changes
@@ -306,7 +314,7 @@ Edit files in `custom_components/bed_presence_engine/` or YAML configurations.
 
 ```bash
 # Run unit tests (fast, no hardware needed)
-cd /home/claude-temp/bed-presence-sensor/esphome
+cd ~/bed-presence-sensor/esphome
 platformio test -e native
 
 # Compile and flash to device
@@ -334,24 +342,26 @@ esphome logs bed-presence-detector.yaml --device /dev/ttyACM0
 ### Prerequisites
 
 ```bash
-cd /home/claude-temp/bed-presence-sensor/tests/e2e
+cd ~/bed-presence-sensor/tests/e2e
 pip install -r requirements.txt
 ```
 
 ### Environment Variables
 
 ```bash
-export HA_URL="ws://192.168.0.148:8123/api/websocket"  # Local network
+export HA_URL="ws://YOUR_NODE_IP:8123/api/websocket"  # Local network
 # or
-export HA_URL="ws://ha.hardwareos.com:8123/api/websocket"  # Via Cloudflare
+export HA_URL="ws://your-domain.com:8123/api/websocket"  # Via Cloudflare
 
 export HA_TOKEN="your-long-lived-access-token-here"
 ```
 
+**Note**: Get the access token from Home Assistant: Profile → Security → Long-Lived Access Tokens
+
 ### Run Tests
 
 ```bash
-cd /home/claude-temp/bed-presence-sensor/tests/e2e
+cd ~/bed-presence-sensor/tests/e2e
 pytest -v
 ```
 
@@ -371,7 +381,7 @@ Or via API:
 # Get sensor value
 curl -H "Authorization: Bearer $HA_TOKEN" \
      -H "Content-Type: application/json" \
-     http://192.168.0.148:8123/api/states/sensor.ld2410_still_energy
+     http://YOUR_NODE_IP:8123/api/states/sensor.ld2410_still_energy
 ```
 
 ### 2. Calculate Statistics
@@ -380,7 +390,7 @@ Calculate mean (μ) and standard deviation (σ) from recorded values.
 
 ### 3. Update Firmware
 
-Edit `/home/claude-temp/bed-presence-sensor/esphome/custom_components/bed_presence_engine/bed_presence.h`:
+Edit `esphome/custom_components/bed_presence_engine/bed_presence.h`:
 
 ```cpp
 float mu_move_{100.0f};   // Replace with calculated mean
@@ -390,8 +400,8 @@ float sigma_move_{20.0f}; // Replace with calculated std dev
 ### 4. Reflash
 
 ```bash
-cd /home/claude-temp/bed-presence-sensor/esphome
-source /home/claude-temp/esphome-venv/bin/activate
+cd ~/bed-presence-sensor/esphome
+source ~/esphome-venv/bin/activate
 esphome run bed-presence-detector.yaml --device /dev/ttyACM0
 ```
 
@@ -415,17 +425,17 @@ sudo dmesg | grep -i usb | tail -20
 esphome logs bed-presence-detector.yaml --device /dev/ttyACM0
 
 # Check WiFi credentials
-cat /home/claude-temp/bed-presence-sensor/esphome/secrets.yaml
+cat ~/bed-presence-sensor/esphome/secrets.yaml
 ```
 
 ### Home Assistant Connection Issues
 
 ```bash
-# Check if device is reachable
-ping 192.168.0.180
+# Check if device is reachable (get IP from HA or router)
+ping YOUR_DEVICE_IP
 
 # Check if API port is open
-nc -zv 192.168.0.180 6053
+nc -zv YOUR_DEVICE_IP 6053
 
 # View ESPHome logs in HA
 # Settings → Devices & Services → ESPHome → Bed Presence Detector → Logs
@@ -460,8 +470,8 @@ The `claude-temp` user is intended for temporary development only:
 sudo deluser claude-temp
 sudo rm -rf /home/claude-temp
 
-# Remove SSH key from authorized_keys (if added to ryan user)
-# Edit ~/.ssh/authorized_keys and remove the claude-code-session key
+# Remove SSH key from authorized_keys
+# Edit ~/.ssh/authorized_keys and remove the temporary session key
 
 # Optional: Disable Cloudflare SSH tunnel access
 # Edit /etc/cloudflared/config.yml and remove SSH ingress rule
@@ -479,17 +489,17 @@ sudo rm -rf /home/claude-temp
 ### Important Files to Backup
 
 1. **Home Assistant Configuration**: `/opt/homeassistant/config/`
-2. **ESPHome Secrets**: `/home/claude-temp/bed-presence-sensor/esphome/secrets.yaml`
+2. **ESPHome Secrets**: `~/bed-presence-sensor/esphome/secrets.yaml`
 3. **Cloudflare Tunnel Config**: `/etc/cloudflared/config.yml`
-4. **Custom Component Code**: `/home/claude-temp/bed-presence-sensor/esphome/custom_components/`
+4. **Custom Component Code**: `~/bed-presence-sensor/esphome/custom_components/`
 
 ### Recovery Steps
 
 If the M5Stack needs to be reflashed from scratch:
 
 1. SSH into the node
-2. Navigate to project: `cd /home/claude-temp/bed-presence-sensor/esphome`
-3. Activate venv: `source /home/claude-temp/esphome-venv/bin/activate`
+2. Navigate to project: `cd ~/bed-presence-sensor/esphome`
+3. Activate venv: `source ~/esphome-venv/bin/activate`
 4. Flash device: `esphome run bed-presence-detector.yaml --device /dev/ttyACM0`
 5. Re-add to Home Assistant using encryption key from secrets.yaml
 
@@ -500,8 +510,8 @@ If the M5Stack needs to be reflashed from scratch:
 ssh ubuntu-node
 
 # Activate ESPHome environment
-cd /home/claude-temp/bed-presence-sensor/esphome
-source /home/claude-temp/esphome-venv/bin/activate
+cd ~/bed-presence-sensor/esphome
+source ~/esphome-venv/bin/activate
 
 # Flash firmware
 esphome run bed-presence-detector.yaml --device /dev/ttyACM0
@@ -510,13 +520,13 @@ esphome run bed-presence-detector.yaml --device /dev/ttyACM0
 esphome logs bed-presence-detector.yaml --device /dev/ttyACM0
 
 # Check device connection
-ls -la /dev/ttyACM0
+ls -la /dev/ttyACM*
 
 # Run unit tests
-cd /home/claude-temp/bed-presence-sensor/esphome && platformio test -e native
+cd ~/bed-presence-sensor/esphome && platformio test -e native
 
 # Run e2e tests
-cd /home/claude-temp/bed-presence-sensor/tests/e2e && pytest -v
+cd ~/bed-presence-sensor/tests/e2e && pytest -v
 
 # Check Home Assistant container
 docker ps | grep homeassistant
@@ -530,5 +540,5 @@ sudo systemctl status cloudflared
 **Last Updated**: 2025-11-05
 **M5Stack Firmware Version**: Phase 1 (z-score based detection)
 **ESPHome Version**: 2025.10.4
-**Home Assistant IP**: 192.168.0.148
-**M5Stack IP**: 192.168.0.180
+
+**Note**: This document is sanitized for public repositories. Actual credentials, IP addresses, and domain names are stored locally on the node and in development environments.
