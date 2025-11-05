@@ -218,8 +218,6 @@ The tests create a `SimplePresenceEngine` class that replicates Phase 1 logic wi
 
 **Run tests**: `cd esphome && platformio test -e native`
 
-**CORRECTION**: The current CLAUDE.md incorrectly states these tests are "structural placeholders". They are fully functional.
-
 ## Known Issues & Discrepancies
 
 ### 1. Home Assistant Dashboard Entity Mismatches
