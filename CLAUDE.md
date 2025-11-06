@@ -6,13 +6,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a bed presence detection system for Home Assistant using an ESP32 microcontroller and LD2410 mmWave radar sensor. The project implements a **3-phase development roadmap** defined in `docs/presence-engine-spec.md`.
 
-**Current Status: Phase 1 Implementation (Z-Score Based Detection)**
+**Current Status: Phase 1 DEPLOYED AND OPERATIONAL** ✅
 
 The repository contains:
-- **Phase 1 presence engine** - Simple z-score based statistical detection (IMPLEMENTED)
-- **C++ unit tests** - Comprehensive test suite for Phase 1 logic (FULLY IMPLEMENTED)
-- **Home Assistant integration** - Dashboard and blueprints (PARTIALLY COMPLETE - see Known Issues)
-- **Development infrastructure** - CI/CD, Codespaces environment, documentation (COMPLETE)
+- **Phase 1 presence engine** - Simple z-score based statistical detection ✅ **DEPLOYED**
+- **Hardware deployment** - M5Stack + LD2410 connected to Home Assistant ✅ **OPERATIONAL**
+- **Baseline calibration** - Real sensor statistics collected and flashed ✅ **CALIBRATED**
+- **C++ unit tests** - Comprehensive test suite for Phase 1 logic ✅ **14 TESTS PASSING**
+- **Home Assistant integration** - Dashboard and blueprints ✅ **FULLY FUNCTIONAL**
+- **Development infrastructure** - Codespace ↔ Ubuntu-node workflow ✅ **DOCUMENTED & CONFIGURED**
 
 ## Implementation Roadmap
 
@@ -123,8 +125,9 @@ The Phase 1 presence engine implements simple z-score based detection:
 
 1. **Input**: `ld2410_still_energy` sensor value
 2. **Z-Score Calculation**: `z = (energy - μ) / σ`
-   - Hardcoded baseline statistics: `μ_move_ = 100.0`, `σ_move_ = 20.0` (placeholders in code)
-   - **IMPORTANT**: These values need manual calibration per `docs/phase1-hardware-setup.md`
+   - ✅ **CALIBRATED** baseline statistics: `μ_move_ = 6.3`, `σ_move_ = 2.6`
+   - Baseline collected: 2025-11-05 with empty bed (30 samples over 60 seconds)
+   - Location: Right nightstand, Queen bed, sensor aimed at bed center
 3. **Threshold Comparison with Hysteresis**:
    - Turn ON when `z > k_on` (default: 4.0)
    - Turn OFF when `z < k_off` (default: 2.0)
@@ -139,9 +142,9 @@ class BedPresenceEngine : public Component, public binary_sensor::BinarySensor {
   float k_on_{4.0f};   // ON threshold multiplier
   float k_off_{2.0f};  // OFF threshold multiplier
 
-  // Hardcoded baseline (user must update these after baseline collection)
-  float mu_move_{100.0f};    // Mean moving energy
-  float sigma_move_{20.0f};  // Std dev moving energy
+  // ✅ CALIBRATED baseline (collected 2025-11-05, empty bed)
+  float mu_move_{6.3f};    // Mean still energy (empty bed)
+  float sigma_move_{2.6f}; // Std dev still energy (empty bed)
 
   // Simple boolean state (NO state machine in Phase 1)
   bool is_occupied_{false};
@@ -271,17 +274,128 @@ esphome:
 - `docs/assets/wiring_diagram.png`
 - `docs/assets/demo.gif`
 
-### 5. Hardware Not Yet Tested
+### ~~5. Hardware Not Yet Tested~~ ✅ DEPLOYED AND OPERATIONAL
 
-**The firmware compiles successfully but has NOT been tested with actual hardware.**
+**Status**: ✅ **Phase 1 firmware deployed and operational on M5Stack hardware**
 
-Before deploying:
-1. Update hardcoded baseline statistics in `bed_presence.h` (lines 43-46) after baseline collection
-2. Follow `docs/phase1-hardware-setup.md` for baseline data collection procedure
-3. Verify LD2410 sensor UART configuration (GPIO16/17, 256000 baud)
-4. Test that energy values from LD2410 are in expected range
+**Hardware Configuration**:
+- **Device**: M5Stack Basic (ESP32-D0WDQ6-V3, 16MB Flash, MAC: 08:b6:1f:a5:6e:68)
+- **Sensor**: LD2410 mmWave radar (UART GPIO16/17, 256000 baud, firmware 2.44.25070917)
+- **Network**: WiFi connected to TP-Link_BECC at IP 192.168.0.180
+- **Home Assistant**: API connected to 192.168.0.148, all entities available
+- **Location**: Right nightstand, Queen bed, sensor aimed at bed center
+
+**Baseline Calibration** (collected 2025-11-05 22:36:52):
+- **Mean (μ):** 6.30% still energy (empty bed)
+- **Std Dev (σ):** 2.56%
+- **Samples:** 30 over 60 seconds
+- **Conditions:** Empty bed, door closed, user 25-30ft away
+- **ON Threshold:** 6.3 + (4.0 × 2.6) = 16.7% (z > 4.0)
+- **OFF Threshold:** 6.3 + (2.0 × 2.6) = 11.5% (z < 2.0)
+
+**Next Steps**: Follow `docs/phase1-completion-steps.md` Step 4 for live presence testing
 
 ## Development Workflow
+
+**⚠️ CRITICAL**: This project uses a **two-location workflow**. Code changes are made in **GitHub Codespace**, synced via **git**, and firmware is flashed from **ubuntu-node** (which has physical USB access to the M5Stack device).
+
+### Codespace ↔ Ubuntu-node Workflow Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                       DEVELOPMENT LOCATIONS                          │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  ┌──────────────────────┐              ┌──────────────────────┐   │
+│  │   GitHub Codespace   │              │    Ubuntu Node       │   │
+│  │  ─────────────────   │              │  ────────────────    │   │
+│  │  • Code editing      │◄────git─────►│  • Firmware flash   │   │
+│  │  • Git operations    │              │  • Device testing   │   │
+│  │  • Documentation     │              │  • USB connection   │   │
+│  │  • NO device access  │              │  • HA integration   │   │
+│  └──────────────────────┘              └──────────────────────┘   │
+│         ▲                                         │                 │
+│         │                                         │                 │
+│         └───────── git push/pull ─────────────────┘                │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+
+                              ▼
+                    ┌──────────────────┐
+                    │   M5Stack Device  │
+                    │  ───────────────  │
+                    │  USB connected to │
+                    │  Ubuntu Node only │
+                    └──────────────────┘
+```
+
+### Workflow Key Principles
+
+1. **Source of Truth**: Git repository (GitHub)
+2. **Code Development**: GitHub Codespace (edit, test compilation, commit, push)
+3. **Firmware Flashing**: Ubuntu-node (git pull, then flash to device via USB)
+4. **Secrets Management**: Ubuntu-node is source of truth for `secrets.yaml` (gitignored)
+
+**See `docs/ubuntu-node-setup.md` for comprehensive workflow documentation including:**
+- Standard code change workflow (edit → commit → sync → flash)
+- Quick iteration patterns
+- Baseline calibration multi-step process
+- Secrets management (copy secrets FROM ubuntu-node TO Codespace, never reverse)
+- Pre-flight checklist to prevent common mistakes
+- Common sync issues and fixes
+- DO/DON'T best practices
+
+### Standard Workflow: Code Changes
+
+**In Codespace** (you are here):
+```bash
+# 1. Edit code
+nano esphome/custom_components/bed_presence_engine/bed_presence.h
+
+# 2. Test compilation (optional but recommended)
+cd esphome
+esphome compile bed-presence-detector.yaml
+platformio test -e native  # Run C++ unit tests
+
+# 3. Commit and push
+git add esphome/custom_components/bed_presence_engine/bed_presence.h
+git commit -m "Description of changes"
+git push origin main
+```
+
+**On ubuntu-node** (via SSH):
+```bash
+# 4. Sync and flash using helper script (RECOMMENDED)
+ssh ubuntu-node
+~/sync-and-flash.sh
+```
+
+**Or manually**:
+```bash
+ssh ubuntu-node
+cd ~/bed-presence-sensor
+git pull origin main  # Sync from GitHub
+cd esphome
+source ~/esphome-venv/bin/activate
+esphome run bed-presence-detector.yaml --device /dev/ttyACM0
+```
+
+### Ubuntu-node Helper Scripts
+
+Two automation scripts are available on ubuntu-node:
+
+**`~/sync-and-flash.sh`** (RECOMMENDED)
+- Pulls latest code from GitHub
+- Verifies WiFi credentials and baseline values
+- Flashes firmware
+- **Use after making changes in Codespace**
+
+**`~/flash-firmware.sh`**
+- Runs pre-flight checklist
+- Flashes existing code without git pull
+- **Use when reflashing without code updates**
+
+**Quick reference**: `cat ~/WORKFLOW-README.md` on ubuntu-node
 
 ### 1. Firmware Development (Fastest Iteration)
 
@@ -350,18 +464,25 @@ float k_off_{2.0f};  // Turn OFF when z < 2.0 (2 std deviations)
 
 ### Updating Baseline Statistics (Phase 1 Manual Calibration)
 
-**Current values** (bed_presence.h:43-46):
+**Current values** (bed_presence.h:40-47) ✅ **CALIBRATED**:
 ```cpp
-float mu_move_{100.0f};   // Mean moving energy (placeholder)
-float sigma_move_{20.0f}; // Std dev moving energy (placeholder)
+// Baseline calibration collected on 2025-11-05 22:36:52
+// Location: Right nightstand, Queen bed, sensor aimed at bed center
+// Conditions: Empty bed, door closed, user 25-30ft away
+// Statistics: mean=6.30%, stdev=2.56%, n=30 samples over 60 seconds
+float mu_move_{6.3f};     // Mean still energy (empty bed)
+float sigma_move_{2.6f};  // Std dev still energy (empty bed)
+float mu_stat_{6.3f};     // Same as mu_move_ for Phase 1
+float sigma_stat_{2.6f};  // Same as sigma_move_ for Phase 1
 ```
 
-**To calibrate**:
-1. Follow `docs/phase1-hardware-setup.md` section "Baseline Data Collection"
-2. Record 30-60 seconds of `ld2410_still_energy` values with empty bed
-3. Calculate mean (μ) and standard deviation (σ)
-4. Update `mu_move_` and `sigma_move_` in `bed_presence.h`
-5. Recompile and flash
+**To re-calibrate** (if sensor position changes or false positives/negatives occur):
+1. Follow `docs/phase1-completion-steps.md` Step 2 "Baseline Data Collection"
+2. Use the collection script: `ssh ubuntu-node "cd ~/bed-presence-sensor && python3 scripts/collect_baseline.py"`
+3. Record mean (μ) and std dev (σ) from script output
+4. **In Codespace**: Edit `bed_presence.h` with new values
+5. **In Codespace**: Commit and push: `git add . && git commit -m "Recalibrate baseline" && git push origin main`
+6. **On ubuntu-node**: Sync and flash: `ssh ubuntu-node "~/sync-and-flash.sh"`
 
 **Note**: Phase 3 will automate this process via calibration services.
 
@@ -655,26 +776,45 @@ ota_password: "generate-with-esphome-wizard"
 
 ## Summary of Current State
 
-**What Works**:
-- ✅ Phase 1 z-score presence detection (fully implemented)
+**✅ Phase 1 DEPLOYED AND OPERATIONAL**:
+- ✅ Phase 1 z-score presence detection (**deployed on hardware**)
+- ✅ M5Stack + LD2410 hardware (**operational**, connected to Home Assistant)
+- ✅ Baseline calibration (**completed**: μ=6.3%, σ=2.6%, collected 2025-11-05)
 - ✅ C++ unit tests (14 tests, all passing)
 - ✅ ESPHome firmware compilation
-- ✅ Runtime threshold tuning via Home Assistant
+- ✅ Runtime threshold tuning via Home Assistant (k_on=4.0, k_off=2.0)
 - ✅ CI/CD workflows (compile + test)
+- ✅ **Codespace ↔ Ubuntu-node workflow** (documented + configured)
 - ✅ GitHub Codespaces development environment
 - ✅ Comprehensive documentation
-- ✅ **NEW**: Home Assistant dashboard with correct Phase 1 entity names
-- ✅ **NEW**: E2E tests with proper dependencies and entity references
+- ✅ Home Assistant dashboard with correct Phase 1 entity names
+- ✅ E2E tests with proper dependencies and entity references
+- ✅ **Ubuntu-node helper scripts** (`~/sync-and-flash.sh`, `~/flash-firmware.sh`)
 
-**What Needs Work**:
-- ⚠️ Calibration services are placeholders (Phase 3 feature)
+**What Needs Work** (Future Phases):
+- ⏳ **Phase 2**: State machine + debouncing (planned)
+- ⏳ **Phase 3**: Automated calibration services (planned)
 - ⚠️ Hardware assets are empty placeholders (STL, diagrams, demo)
-- ⚠️ Firmware not tested with actual hardware
-- ⚠️ Phase 2 (debouncing) and Phase 3 (auto-calibration) not implemented
+- ⚠️ Calibration services exist but are placeholders (Phase 3 implementation)
 
-**Next Steps**:
-1. Test firmware with actual M5Stack + LD2410 hardware
-2. Collect baseline data and update hardcoded statistics
-3. Implement Phase 2 state machine and debouncing
-4. Implement Phase 3 automated calibration
-5. Create hardware assets (3D mount, wiring diagram, demo GIF)
+**Immediate Next Steps**:
+1. ✅ **DONE**: Hardware deployed and operational
+2. ✅ **DONE**: Baseline calibrated and flashed
+3. **CURRENT**: Test live presence detection (Step 4 of `docs/phase1-completion-steps.md`)
+   - Move device to bedroom location
+   - Test empty bed → should show OFF
+   - Test occupied bed → should show ON
+   - Tune thresholds if needed
+4. **NEXT**: Document Phase 1 validation results
+5. **FUTURE**: Implement Phase 2 state machine + debouncing
+6. **FUTURE**: Implement Phase 3 automated calibration
+
+**Hardware Configuration**:
+- **Device**: M5Stack Basic (ESP32-D0WDQ6-V3, 16MB Flash)
+- **MAC Address**: 08:b6:1f:a5:6e:68
+- **WiFi**: TP-Link_BECC @ 192.168.0.180
+- **Home Assistant**: Connected @ 192.168.0.148
+- **Sensor**: LD2410 (firmware 2.44.25070917, UART GPIO16/17)
+- **Location**: Right nightstand, Queen bed
+- **Baseline**: μ=6.3%, σ=2.6% (empty bed, 30 samples)
+- **Thresholds**: ON=16.7% (z>4.0), OFF=11.5% (z<2.0)
