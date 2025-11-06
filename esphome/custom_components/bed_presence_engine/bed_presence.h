@@ -37,13 +37,14 @@ class BedPresenceEngine : public Component, public binary_sensor::BinarySensor {
   // Input sensor
   sensor::Sensor *energy_sensor_{nullptr};
 
-  // Hardcoded baseline statistics (UPDATE THESE after baseline collection)
-  // TODO: Replace these placeholder values with actual baseline data from your LD2410 sensor
-  // To collect baseline: Run sensor for 30-60s in empty bed, observe moving/static energy values
-  float mu_move_{100.0f};   // Mean moving energy (placeholder)
-  float sigma_move_{20.0f}; // Std dev moving energy (placeholder)
-  float mu_stat_{100.0f};   // Mean static energy (placeholder)
-  float sigma_stat_{20.0f}; // Std dev static energy (placeholder)
+  // Baseline calibration collected on 2025-11-05 22:36:52
+  // Location: Right nightstand, Queen bed, sensor aimed at bed center
+  // Conditions: Empty bed, door closed, user 25-30ft away
+  // Statistics: mean=6.30%, stdev=2.56%, n=30 samples over 60 seconds
+  float mu_move_{6.3f};     // Mean still energy (empty bed)
+  float sigma_move_{2.6f};  // Std dev still energy (empty bed)
+  float mu_stat_{6.3f};     // Same as mu_move_ for Phase 1
+  float sigma_stat_{2.6f};  // Same as sigma_move_ for Phase 1
 
   // Threshold multipliers (k_on > k_off for hysteresis)
   float k_on_{4.0f};   // Turn ON when z > k_on (default: 4 std deviations)

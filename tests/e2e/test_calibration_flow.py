@@ -49,19 +49,19 @@ async def test_device_is_connected(ha_client):
 @pytest.mark.asyncio
 async def test_presence_sensor_exists(ha_client):
     """Test that the bed occupied binary sensor exists"""
-    state = await ha_client.get_state("binary_sensor.bed_occupied")
-    assert state is not None, "binary_sensor.bed_occupied not found"
+    state = await ha_client.get_state("binary_sensor.bed_presence_detector_bed_occupied")
+    assert state is not None, "binary_sensor.bed_presence_detector_bed_occupied not found"
     assert state["state"] in ["on", "off"], "Invalid state for presence sensor"
 
 
 @pytest.mark.asyncio
 async def test_threshold_entities_exist(ha_client):
     """Test that threshold configuration entities exist"""
-    k_on_threshold = await ha_client.get_state("number.k_on_on_threshold_multiplier")
-    k_off_threshold = await ha_client.get_state("number.k_off_off_threshold_multiplier")
+    k_on_threshold = await ha_client.get_state("number.bed_presence_detector_k_on_on_threshold_multiplier")
+    k_off_threshold = await ha_client.get_state("number.bed_presence_detector_k_off_off_threshold_multiplier")
 
-    assert k_on_threshold is not None, "number.k_on_on_threshold_multiplier not found"
-    assert k_off_threshold is not None, "number.k_off_off_threshold_multiplier not found"
+    assert k_on_threshold is not None, "number.bed_presence_detector_k_on_on_threshold_multiplier not found"
+    assert k_off_threshold is not None, "number.bed_presence_detector_k_off_off_threshold_multiplier not found"
 
     # Verify thresholds are sensible (k_on should be higher than k_off for hysteresis)
     k_on_val = float(k_on_threshold["state"])
@@ -76,7 +76,7 @@ async def test_update_threshold_via_service(ha_client):
     await ha_client.call_service(
         "number",
         "set_value",
-        entity_id="number.k_on_on_threshold_multiplier",
+        entity_id="number.bed_presence_detector_k_on_on_threshold_multiplier",
         value=5.0
     )
 
@@ -84,7 +84,7 @@ async def test_update_threshold_via_service(ha_client):
     await asyncio.sleep(1)
 
     # Verify the update
-    state = await ha_client.get_state("number.k_on_on_threshold_multiplier")
+    state = await ha_client.get_state("number.bed_presence_detector_k_on_on_threshold_multiplier")
     assert float(state["state"]) == 5.0, "k_on threshold was not updated"
 
 
@@ -117,8 +117,8 @@ async def test_reset_to_defaults(ha_client):
     await asyncio.sleep(2)
 
     # Verify defaults are restored (Phase 1 defaults: k_on=4.0, k_off=2.0)
-    k_on_state = await ha_client.get_state("number.k_on_on_threshold_multiplier")
-    k_off_state = await ha_client.get_state("number.k_off_off_threshold_multiplier")
+    k_on_state = await ha_client.get_state("number.bed_presence_detector_k_on_on_threshold_multiplier")
+    k_off_state = await ha_client.get_state("number.bed_presence_detector_k_off_off_threshold_multiplier")
 
     assert float(k_on_state["state"]) == 4.0, "k_on threshold not reset to default (4.0)"
     assert float(k_off_state["state"]) == 2.0, "k_off threshold not reset to default (2.0)"
@@ -127,7 +127,7 @@ async def test_reset_to_defaults(ha_client):
 @pytest.mark.asyncio
 async def test_state_reason_sensor(ha_client):
     """Test that the state reason text sensor is available and updating"""
-    state = await ha_client.get_state("sensor.presence_state_reason")
+    state = await ha_client.get_state("sensor.bed_presence_detector_presence_state_reason")
     assert state is not None, "State reason sensor not found"
     assert len(state["state"]) > 0, "State reason is empty"
 

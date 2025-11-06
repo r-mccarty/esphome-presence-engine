@@ -7,18 +7,29 @@ This document outlines the remaining tasks to complete Phase 1 implementation of
 **Completed:**
 - ✅ Phase 1 firmware compiled and flashed to M5Stack
 - ✅ Device connected to Home Assistant via WiFi
-- ✅ All Phase 1 entities visible in Home Assistant
+- ✅ All Phase 1 entities visible in Home Assistant (with `bed_presence_detector_` prefix)
 - ✅ LD2410 sensor operational and reading values
 - ✅ Unit tests passing (14 tests covering z-score logic)
 - ✅ SSH access configured via Cloudflare Tunnel
 - ✅ Development environment set up on Ubuntu node
+- ✅ E2E integration test framework set up (entity names corrected)
+- ✅ Baseline data collection script created (`scripts/collect_baseline.py`)
+- ✅ Baseline statistics collected (2025-11-05 22:36:52):
+  - **Mean (μ):** 6.30%
+  - **Std Dev (σ):** 2.56%
+  - **Samples:** 30 over 60 seconds
+  - **Environment:** Queen bed, right nightstand, empty bed, door closed, user 25-30ft away
+- ✅ C++ code updated with calibrated baseline values (bed_presence.h lines 40-47)
+- ✅ Firmware recompiled with new baseline
+- ✅ Firmware flashed via USB (2025-11-06)
 
 **Remaining Tasks:**
-1. E2E integration testing
-2. Baseline data collection
-3. Baseline calibration and reflash
-4. Live presence detection testing
+1. ~~E2E integration testing~~ ✅ COMPLETED
+2. ~~Baseline data collection~~ ✅ COMPLETED
+3. ~~Baseline calibration and reflash~~ ✅ COMPLETED
+4. Live presence detection testing (IN PROGRESS)
 5. Documentation updates
+6. Git commits
 
 ---
 
@@ -420,12 +431,12 @@ Co-Authored-By: Claude <noreply@anthropic.com>"
 
 Use this checklist to track progress:
 
-- [ ] E2E integration tests run successfully
-- [ ] Baseline data collected (minimum 20 samples)
-- [ ] Baseline statistics calculated (μ and σ)
-- [ ] C++ code updated with actual baseline values
-- [ ] Firmware recompiled and flashed
-- [ ] Presence detection tested with empty bed
+- [x] E2E integration tests run successfully
+- [x] Baseline data collected (minimum 20 samples) - **30 samples collected**
+- [x] Baseline statistics calculated (μ and σ) - **μ=6.30%, σ=2.56%**
+- [x] C++ code updated with actual baseline values - **bed_presence.h updated**
+- [x] Firmware recompiled and flashed - **Completed 2025-11-06**
+- [ ] Presence detection tested with empty bed - **IN PROGRESS**
 - [ ] Presence detection tested with occupied bed
 - [ ] Threshold tuning validated
 - [ ] Known limitations documented
