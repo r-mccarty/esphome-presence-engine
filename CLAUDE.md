@@ -125,9 +125,9 @@ The Phase 1 presence engine implements simple z-score based detection:
 
 1. **Input**: `ld2410_still_energy` sensor value
 2. **Z-Score Calculation**: `z = (energy - μ) / σ`
-   - ✅ **CALIBRATED** baseline statistics: `μ_move_ = 6.3`, `σ_move_ = 2.6`
-   - Baseline collected: 2025-11-05 with empty bed (30 samples over 60 seconds)
-   - Location: Right nightstand, Queen bed, sensor aimed at bed center
+   - ✅ **CALIBRATED** baseline statistics: `μ_move_ = 6.7`, `σ_move_ = 3.5`
+   - Baseline collected: 2025-11-06 with empty bed (30 samples over 60 seconds)
+   - Location: New sensor position looking at bed
 3. **Threshold Comparison with Hysteresis**:
    - Turn ON when `z > k_on` (default: 4.0)
    - Turn OFF when `z < k_off` (default: 2.0)
@@ -142,9 +142,9 @@ class BedPresenceEngine : public Component, public binary_sensor::BinarySensor {
   float k_on_{4.0f};   // ON threshold multiplier
   float k_off_{2.0f};  // OFF threshold multiplier
 
-  // ✅ CALIBRATED baseline (collected 2025-11-05, empty bed)
-  float mu_move_{6.3f};    // Mean still energy (empty bed)
-  float sigma_move_{2.6f}; // Std dev still energy (empty bed)
+  // ✅ CALIBRATED baseline (collected 2025-11-06, empty bed)
+  float mu_move_{6.7f};    // Mean still energy (empty bed)
+  float sigma_move_{3.5f}; // Std dev still energy (empty bed)
 
   // Simple boolean state (NO state machine in Phase 1)
   bool is_occupied_{false};
@@ -283,17 +283,21 @@ esphome:
 - **Sensor**: LD2410 mmWave radar (UART GPIO16/17, 256000 baud, firmware 2.44.25070917)
 - **Network**: WiFi connected to TP-Link_BECC at IP 192.168.0.180
 - **Home Assistant**: API connected to 192.168.0.148, all entities available
-- **Location**: Right nightstand, Queen bed, sensor aimed at bed center
+- **Location**: New sensor position looking at bed
 
-**Baseline Calibration** (collected 2025-11-05 22:36:52):
-- **Mean (μ):** 6.30% still energy (empty bed)
-- **Std Dev (σ):** 2.56%
+**Baseline Calibration** (recalibrated 2025-11-06 18:39:42):
+- **Mean (μ):** 6.67% still energy (empty bed, rounded to 6.7%)
+- **Std Dev (σ):** 3.51% (rounded to 3.5%)
 - **Samples:** 30 over 60 seconds
-- **Conditions:** Empty bed, door closed, user 25-30ft away
-- **ON Threshold:** 6.3 + (4.0 × 2.6) = 16.7% (z > 4.0)
-- **OFF Threshold:** 6.3 + (2.0 × 2.6) = 11.5% (z < 2.0)
+- **Conditions:** Empty bed, door closed, minimal movement
+- **ON Threshold:** 6.7 + (4.0 × 3.5) = 20.7% (z > 4.0)
+- **OFF Threshold:** 6.7 + (2.0 × 3.5) = 13.7% (z < 2.0)
 
-**Next Steps**: Follow `docs/phase1-completion-steps.md` Step 4 for live presence testing
+**Phase 1 Validation Results** (tested 2025-11-06):
+- ✅ Empty bed test: 3.0% still energy, z=-1.06, state=OFF
+- ✅ Occupied bed test: 64.0% still energy, z=16.37, state=ON
+- ✅ Hysteresis working correctly (proper ON/OFF thresholds)
+- ✅ Phase 1 **COMPLETE AND VALIDATED**
 
 ## Development Workflow
 
@@ -464,16 +468,16 @@ float k_off_{2.0f};  // Turn OFF when z < 2.0 (2 std deviations)
 
 ### Updating Baseline Statistics (Phase 1 Manual Calibration)
 
-**Current values** (bed_presence.h:40-47) ✅ **CALIBRATED**:
+**Current values** (bed_presence.h:40-47) ✅ **CALIBRATED** (2025-11-06):
 ```cpp
-// Baseline calibration collected on 2025-11-05 22:36:52
-// Location: Right nightstand, Queen bed, sensor aimed at bed center
-// Conditions: Empty bed, door closed, user 25-30ft away
-// Statistics: mean=6.30%, stdev=2.56%, n=30 samples over 60 seconds
-float mu_move_{6.3f};     // Mean still energy (empty bed)
-float sigma_move_{2.6f};  // Std dev still energy (empty bed)
-float mu_stat_{6.3f};     // Same as mu_move_ for Phase 1
-float sigma_stat_{2.6f};  // Same as sigma_move_ for Phase 1
+// Baseline calibration collected on 2025-11-06 18:39:42
+// Location: New sensor position looking at bed
+// Conditions: Empty bed, door closed, minimal movement
+// Statistics: mean=6.67%, stdev=3.51%, n=30 samples over 60 seconds
+float mu_move_{6.7f};     // Mean still energy (empty bed)
+float sigma_move_{3.5f};  // Std dev still energy (empty bed)
+float mu_stat_{6.7f};     // Same as mu_move_ for Phase 1
+float sigma_stat_{3.5f};  // Same as sigma_move_ for Phase 1
 ```
 
 **To re-calibrate** (if sensor position changes or false positives/negatives occur):
@@ -646,6 +650,8 @@ pip install esphome platformio pytest pytest-asyncio yamllint black
 
 ## Secrets Management
 
+### ESPHome Secrets (`esphome/secrets.yaml`)
+
 **File**: `esphome/secrets.yaml` (gitignored)
 
 **Create from template**:
@@ -663,6 +669,35 @@ ota_password: "generate-with-esphome-wizard"
 ```
 
 **Never commit** `secrets.yaml` to git.
+
+### Home Assistant API Configuration (`.env.local`)
+
+**File**: `.env.local` (gitignored, project root)
+
+Used for baseline calibration script and E2E tests to connect to Home Assistant.
+
+**Create**:
+```bash
+cat > .env.local << EOF
+# Home Assistant Connection Configuration
+HA_URL=http://192.168.0.148:8123
+HA_WS_URL=ws://192.168.0.148:8123/api/websocket
+HA_TOKEN=your-long-lived-access-token
+EOF
+```
+
+**Get Long-Lived Access Token**:
+1. Open Home Assistant → Profile (bottom left)
+2. Scroll to "Long-Lived Access Tokens"
+3. Click "Create Token"
+4. Name: "Bed Presence Development"
+5. Copy token and paste into `.env.local`
+
+**Usage**:
+- Baseline calibration: `python3 scripts/collect_baseline.py` (auto-loads from `.env.local`)
+- E2E tests: `pytest tests/e2e/` (auto-loads from `.env.local`)
+
+**Never commit** `.env.local` to git.
 
 ## Key Files Reference
 
@@ -797,17 +832,19 @@ ota_password: "generate-with-esphome-wizard"
 - ⚠️ Hardware assets are empty placeholders (STL, diagrams, demo)
 - ⚠️ Calibration services exist but are placeholders (Phase 3 implementation)
 
-**Immediate Next Steps**:
+**Phase 1 Completion Status**:
 1. ✅ **DONE**: Hardware deployed and operational
-2. ✅ **DONE**: Baseline calibrated and flashed
-3. **CURRENT**: Test live presence detection (Step 4 of `docs/phase1-completion-steps.md`)
-   - Move device to bedroom location
-   - Test empty bed → should show OFF
-   - Test occupied bed → should show ON
-   - Tune thresholds if needed
-4. **NEXT**: Document Phase 1 validation results
-5. **FUTURE**: Implement Phase 2 state machine + debouncing
-6. **FUTURE**: Implement Phase 3 automated calibration
+2. ✅ **DONE**: Baseline recalibrated for new sensor position (2025-11-06)
+3. ✅ **DONE**: Firmware flashed with updated baseline
+4. ✅ **DONE**: Phase 1 presence detection validated
+   - Empty bed test: PASSED (3.0%, z=-1.06, OFF)
+   - Occupied bed test: PASSED (64.0%, z=16.37, ON)
+   - Hysteresis verified: Working correctly
+5. ✅ **PHASE 1 COMPLETE**
+
+**Next Steps**:
+- **FUTURE**: Implement Phase 2 state machine + debouncing
+- **FUTURE**: Implement Phase 3 automated calibration
 
 **Hardware Configuration**:
 - **Device**: M5Stack Basic (ESP32-D0WDQ6-V3, 16MB Flash)
@@ -815,6 +852,6 @@ ota_password: "generate-with-esphome-wizard"
 - **WiFi**: TP-Link_BECC @ 192.168.0.180
 - **Home Assistant**: Connected @ 192.168.0.148
 - **Sensor**: LD2410 (firmware 2.44.25070917, UART GPIO16/17)
-- **Location**: Right nightstand, Queen bed
-- **Baseline**: μ=6.3%, σ=2.6% (empty bed, 30 samples)
-- **Thresholds**: ON=16.7% (z>4.0), OFF=11.5% (z<2.0)
+- **Location**: New sensor position looking at bed
+- **Baseline**: μ=6.7%, σ=3.5% (empty bed, 30 samples, recalibrated 2025-11-06)
+- **Thresholds**: ON=20.7% (z>4.0), OFF=13.7% (z<2.0)
