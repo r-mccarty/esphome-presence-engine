@@ -1,33 +1,61 @@
-# AGENTS.md
+# AGENTS.md – Repository-Wide Agent Guidance
 
-Guidance for AI coding agents working in this repository. For the full narrative history and detailed requirements, read `CLAUDE.md` (source of truth) and the user-facing `README.md` + `/docs` collection before you change anything.
+**Note:** This file provides directory-specific guidance for AI agents. For comprehensive project context, **always read `CLAUDE.md` first** – it serves as your primary context map and documents the complete project structure, workflow, and current state.
 
 ## Project Snapshot
-- **Domain**: ESPHome firmware + Home Assistant content for an ESP32 + LD2410 bed presence detector.
-- **Current phase**: **Phase 2** is implemented and ready for deployment. Phase 1 is complete and Phase 3 (automated calibration) is still planned.
-- **Core behavior**: Z-score analysis of `ld2410_still_energy` with a 4-state debounced state machine (`IDLE → DEBOUNCING_ON → PRESENT → DEBOUNCING_OFF`). Thresholds (`k_on`, `k_off`) and debounce timers (on/off/absolute-clear) are runtime-tunable from Home Assistant.
-- **Baselines**: `mu_still = 6.7`, `sigma_still = 3.5` collected 2025-11-06. Defaults: `k_on = 9.0`, `k_off = 4.0`, `on_debounce = 3s`, `off_debounce = 5s`, `absolute_clear = 30s`.
-- **Languages**: C++ (custom component), YAML (ESPHome + HA), Python (tests), Markdown (docs).
+- **Domain**: ESP32-based bed presence detection system using LD2410 mmWave sensor and ESPHome firmware.
+- **Current phase**: **Phase 2 is DEPLOYED** and fully operational. Phase 1 is complete, Phase 3 (automated calibration) is planned.
+- **Core behavior**: Z-score statistical analysis of `ld2410_still_energy` with a 4-state debounced state machine (`IDLE → DEBOUNCING_ON → PRESENT → DEBOUNCING_OFF`). All thresholds and debounce timers are runtime-tunable from Home Assistant.
+- **Baselines**: μ_still = 6.7%, σ_still = 3.5% (calibrated 2025-11-06, empty bed). Defaults: k_on = 9.0, k_off = 4.0, on_debounce = 3s, off_debounce = 5s, absolute_clear = 30s.
+- **Development Environment**: Two-machine workflow: GitHub Codespaces for code editing, ubuntu-node for firmware flashing and hardware access.
+- **Languages**: C++ (custom component), YAML (ESPHome + HA), Python (tests + scripts), Markdown (docs).
 
 ## High-Level Workflow
-1. Review design + requirements (`CLAUDE.md`, `docs/presence-engine-spec.md`).
-2. Make firmware changes inside `esphome/` (see subdirectory guidance) and keep Home Assistant + docs in sync when behavior changes.
-3. Run tests:
-   - `cd esphome && esphome compile bed-presence-detector.yaml`
-   - `cd esphome && platformio test -e native`
-   - `cd tests/e2e && pytest` (requires live Home Assistant; Phase 3 tests are skipped)
-   - `yamllint esphome/ homeassistant/`
-4. Update docs whenever defaults, workflows, or operator UX changes.
+
+**⚠️ CRITICAL:** This project uses a **two-machine workflow** (see `docs/DEVELOPMENT_WORKFLOW.md`):
+- **Codespaces**: Code editing, git operations, documentation
+- **ubuntu-node**: Firmware compilation, flashing (physical USB access), Home Assistant API access
+
+### Standard Development Flow
+1. **Read Context**: Start with `CLAUDE.md` for project overview, then consult relevant docs:
+   - Algorithm/design → `docs/ARCHITECTURE.md`
+   - Compilation/flashing → `docs/DEVELOPMENT_WORKFLOW.md`
+   - Hardware/calibration → `docs/HARDWARE_SETUP.md`
+   - Troubleshooting → `docs/troubleshooting.md`
+2. **Edit Code**: Make changes in Codespaces (or local environment).
+3. **Test Locally** (unit tests only in Codespaces):
+   - `cd esphome && platformio test -e native` (C++ unit tests)
+   - `yamllint esphome/ homeassistant/` (YAML validation)
+4. **Commit & Push**: Standard git workflow.
+5. **Deploy to Hardware** (must be done on ubuntu-node):
+   - SSH to ubuntu-node: `ssh user@ubuntu-node`
+   - Pull changes: `cd ~/bed-presence-sensor && git pull`
+   - Flash firmware: `~/sync-and-flash.sh` or `~/flash-firmware.sh`
+6. **Integration Testing** (on ubuntu-node):
+   - `cd tests/e2e && pytest` (requires Home Assistant access)
 
 ## Repository Map
+
+**📁 Each subdirectory has its own AGENTS.md with specific guidance** – always consult the local AGENTS.md when working in that directory.
+
 ```
-/                    ─ Repo-wide docs (this file, CLAUDE.md, README.md)
-├── esphome/         ─ Firmware (custom component, YAML packages, PlatformIO tests)
-├── homeassistant/   ─ Lovelace dashboard, automation blueprint, helper templates
-├── docs/            ─ Engineering spec, hardware setup, quickstart, troubleshooting
-├── tests/e2e/       ─ Python integration tests that talk to Home Assistant
-├── hardware/        ─ CAD placeholders for mounts/enclosures
-└── scripts/         ─ Tooling helpers (see script headers before use)
+/                    ─ CLAUDE.md (primary AI context), README.md (human docs), AGENTS.md (this file)
+├── docs/            ─ AGENTS.md + comprehensive documentation
+│   ├── ARCHITECTURE.md              ─ Technical design, algorithms, state machine
+│   ├── DEVELOPMENT_WORKFLOW.md      ─ Two-machine workflow (Codespace ↔ ubuntu-node)
+│   ├── HARDWARE_SETUP.md            ─ Hardware specs, wiring, calibration
+│   ├── troubleshooting.md           ─ Common issues and solutions
+│   ├── presence-engine-spec.md      ─ Source of truth for 3-phase engineering spec
+│   └── [other docs]                 ─ Quickstart, FAQ, RFDs, deployment guides
+├── esphome/         ─ AGENTS.md + firmware (custom component, YAML packages, PlatformIO tests)
+│   ├── custom_components/bed_presence_engine/  ─ C++ implementation
+│   ├── packages/                    ─ Modular YAML configuration
+│   ├── test/                        ─ C++ unit tests (14 scenarios, all passing)
+│   └── bed-presence-detector.yaml   ─ Main ESPHome config
+├── homeassistant/   ─ AGENTS.md + Lovelace dashboard, automation blueprint
+├── tests/e2e/       ─ AGENTS.md + Python integration tests (require live Home Assistant)
+├── hardware/        ─ CAD placeholders for mounts/enclosures (0-byte placeholders)
+└── scripts/         ─ Utility scripts (collect_baseline.py, etc.)
 ```
 
 ## Coding Standards
@@ -42,13 +70,24 @@ Guidance for AI coding agents working in this repository. For the full narrative
 - Include test commands you actually ran in the PR description.
 
 ## Troubleshooting Reminders
-- **Binary sensor stuck OFF**: Verify baseline calibration, lower `k_on`, inspect ESPHome logs for z-score/state machine messages.
-- **Sensor oscillates**: Increase debounce timers or widen hysteresis (gap between `k_on`/`k_off`).
+- **Binary sensor stuck OFF**: Verify baseline calibration, check z-scores in logs, adjust `k_on` threshold, review `docs/troubleshooting.md`.
+- **Sensor oscillates/flaps**: Increase debounce timers, widen hysteresis (gap between `k_on`/`k_off`), check state machine logs.
+- **Cannot compile/flash**: Must be on ubuntu-node with physical USB access (see `docs/DEVELOPMENT_WORKFLOW.md`).
 - **PlatformIO fails on first run**: Allow dependency download or delete `.pio` and retry.
-- **E2E pytest cannot connect**: Confirm `HA_URL` + `HA_TOKEN`, HA instance must expose WebSocket API.
+- **E2E pytest cannot connect**: Run on ubuntu-node with Home Assistant access, verify `HA_URL` + `HA_TOKEN` in `.env.local`.
+- **Secrets file confusion**: `.env.local` = HA API access (Python scripts), `secrets.yaml` = WiFi credentials (firmware). Ubuntu-node is source of truth for both.
 
-## Read First / Quick Links
-- `README.md` – high-level overview + deployment instructions.
-- `CLAUDE.md` – authoritative technical reference and change log.
-- `docs/presence-engine-spec.md` – engineering roadmap for Phases 1-3.
-- Subdirectory `AGENTS.md` files – scoped guidance you **must** follow when editing those areas.
+## Essential Reading Order
+
+**Start here every time:**
+1. **`CLAUDE.md`** – Primary AI context map, project overview, current status, documentation roadmap
+2. **Task-specific docs**:
+   - Algorithm questions → `docs/ARCHITECTURE.md`
+   - Code changes/flashing → `docs/DEVELOPMENT_WORKFLOW.md`
+   - Hardware/calibration → `docs/HARDWARE_SETUP.md`
+   - Debugging → `docs/troubleshooting.md`
+   - Environment setup → `CONTRIBUTING.md`
+3. **Subdirectory `AGENTS.md`** – Directory-specific guidance (you **must** follow when editing those areas)
+4. **`docs/presence-engine-spec.md`** – Engineering roadmap and detailed requirements for all 3 phases
+
+**For users:** `README.md` provides human-friendly project overview and deployment instructions.
