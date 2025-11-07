@@ -1,13 +1,75 @@
-# Phase 1 Hardware Setup Checklist
+# Hardware Setup Guide
 
-This document guides you through setting up and testing the Phase 1 firmware with actual hardware.
+This document provides comprehensive hardware setup instructions for the bed presence detection system, including wiring, sensor configuration, and baseline calibration.
 
-## Prerequisites
+## Current Hardware Configuration
 
-- ✅ M5Stack Basic v2.7
-- ⏳ LD2410C mmWave radar sensor (arriving later today)
-- ✅ ESPHome firmware compiled successfully
-- ✅ Home Assistant running and accessible
+**Status:** Phase 2 DEPLOYED and operational as of 2025-11-07
+
+### Device Specifications
+
+**Microcontroller:**
+- **Model**: M5Stack Basic (ESP32-D0WDQ6-V3)
+- **Flash**: 16MB
+- **MAC Address**: 08:b6:1f:a5:6e:68
+- **Network**: WiFi connected to TP-Link_BECC
+- **IP Address**: 192.168.0.180
+
+**Sensor:**
+- **Model**: LD2410 mmWave radar
+- **Firmware**: v2.44.25070917
+- **Communication**: UART (GPIO16/17, 256000 baud)
+- **Location**: New sensor position looking at bed
+
+**Home Assistant Integration:**
+- **Home Assistant IP**: 192.168.0.148
+- **Connection**: ESPHome native API
+- **Status**: All entities available and functional
+
+### Current Calibration
+
+**Baseline Statistics** (collected 2025-11-06 18:39:42):
+- **Mean (μ)**: 6.7% still energy (empty bed)
+- **Std Dev (σ)**: 3.5% still energy
+- **Samples**: 30 over 60 seconds
+- **Conditions**: Empty bed, door closed, minimal movement
+
+**Thresholds** (tuned for reduced false positives):
+- **k_on**: 9.0 (ON threshold: 38.2% still energy, z > 9.0)
+- **k_off**: 4.0 (OFF threshold: 20.7% still energy, z < 4.0)
+- **Hysteresis gap**: 17.5% (5.0 std deviations)
+
+**Debounce Timers** (Phase 2):
+- **on_debounce_ms**: 3000 (3 seconds sustained high signal required)
+- **off_debounce_ms**: 5000 (5 seconds sustained low signal required)
+- **abs_clear_delay_ms**: 30000 (30 seconds since last high confidence)
+
+### Validation Results
+
+**Phase 1 Validation** (tested 2025-11-06):
+- ✅ Empty bed: 3.0% still energy, z=-1.06, state=OFF
+- ✅ Occupied bed: 64.0% still energy, z=16.37, state=ON
+- ✅ Thresholds tuned to reduce false positives
+- ✅ Hysteresis gap prevents oscillation
+
+**Phase 2 Validation** (deployed 2025-11-07):
+- ✅ State machine transitions observed (DEBOUNCING_ON → PRESENT after 3s)
+- ✅ Temporal filtering eliminates false positives/negatives
+- ✅ All 7 entities available in Home Assistant
+- ✅ Runtime tuning functional
+
+---
+
+## Hardware Setup for New Installations
+
+### Prerequisites
+
+- M5Stack Basic (ESP32) or compatible ESP32 board
+- LD2410 or LD2410C mmWave radar sensor
+- USB cable for programming
+- Jumper wires for UART connection
+- ESPHome firmware compiled successfully
+- Home Assistant running and accessible
 
 ## Step 1: Verify Current ESPHome Configuration
 
@@ -246,17 +308,24 @@ Once Phase 1 is validated:
 
 Phase 1 uses `ld2410_still_energy` exclusively; moving-energy baselines are not part of the current algorithm.
 
-**Default Phase 1 Parameters:**
+**Current Phase 2 Parameters:**
 - μ_still = 6.7 (production empty-bed mean; replace with your measured value)
 - σ_still = 3.5 (production empty-bed std dev; replace with your measured value)
-- k_on = 4.0 (4 standard deviations to turn ON)
-- k_off = 2.0 (2 standard deviations to turn OFF)
+- k_on = 9.0 (9 standard deviations to trigger DEBOUNCING_ON)
+- k_off = 4.0 (4 standard deviations to trigger DEBOUNCING_OFF)
+- on_debounce_ms = 3000 (3 seconds sustained high signal)
+- off_debounce_ms = 5000 (5 seconds sustained low signal)
+- abs_clear_delay_ms = 30000 (30 seconds since last high confidence)
 
-**Phase 1 Logic:**
+**Phase 2 Logic:**
 ```
 z_score = (still_energy - μ_still) / σ_still
-if (not occupied and z_score > k_on): turn ON
-if (occupied and z_score < k_off): turn OFF
+
+State Machine:
+IDLE → DEBOUNCING_ON (when z >= k_on)
+DEBOUNCING_ON → PRESENT (after on_debounce_ms with sustained z >= k_on)
+PRESENT → DEBOUNCING_OFF (when z < k_off AND time since high_conf >= abs_clear_delay_ms)
+DEBOUNCING_OFF → IDLE (after off_debounce_ms with sustained z < k_off)
 ```
 
 **Key Files:**
