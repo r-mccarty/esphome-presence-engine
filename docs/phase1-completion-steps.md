@@ -2,6 +2,16 @@
 
 This document outlines the remaining tasks to complete Phase 1 implementation of the bed presence detection system.
 
+## Phase 1 Changelog
+
+- Established firmware build, flashing, and Home Assistant connectivity, including unit and E2E coverage for the
+  z-score algorithm.
+- Captured a vacant-bed baseline (μ = 6.30%, σ = 2.56%) with `scripts/collect_baseline.py` and updated
+  `bed_presence.h` with the measured constants.
+- Reflashed the device on 2025-11-06 and validated live detection against an occupied/empty bed scenario.
+- Documented the known no-debounce limitation and queued Phase 2 work to add the state machine and timers.
+- **Current status:** ✅ Phase 1 is complete and validated; active development has shifted to Phase 2.
+
 ## Current Status
 
 **Completed:**
@@ -23,13 +33,7 @@ This document outlines the remaining tasks to complete Phase 1 implementation of
 - ✅ Firmware recompiled with new baseline
 - ✅ Firmware flashed via USB (2025-11-06)
 
-**Remaining Tasks:**
-1. ~~E2E integration testing~~ ✅ COMPLETED
-2. ~~Baseline data collection~~ ✅ COMPLETED
-3. ~~Baseline calibration and reflash~~ ✅ COMPLETED
-4. Live presence detection testing (IN PROGRESS)
-5. Documentation updates
-6. Git commits
+**Remaining Tasks:** None. Phase 1 is complete and the deliverables below are retained for historical reference.
 
 ---
 
