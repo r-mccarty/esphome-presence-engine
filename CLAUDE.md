@@ -6,13 +6,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is a bed presence detection system for Home Assistant using an ESP32 microcontroller and LD2410 mmWave radar sensor. The project implements a **3-phase development roadmap** defined in `docs/presence-engine-spec.md`.
 
-**Current Status: Phase 1 DEPLOYED AND OPERATIONAL** ✅
+**Current Status: Phase 2 IMPLEMENTED** ✅
 
 The repository contains:
-- **Phase 1 presence engine** - Simple z-score based statistical detection ✅ **DEPLOYED**
+- **Phase 2 presence engine** - State machine with temporal filtering ✅ **IMPLEMENTED**
 - **Hardware deployment** - M5Stack + LD2410 connected to Home Assistant ✅ **OPERATIONAL**
 - **Baseline calibration** - Real sensor statistics collected and flashed ✅ **CALIBRATED**
-- **C++ unit tests** - Comprehensive test suite for Phase 1 logic ✅ **14 TESTS PASSING**
+- **C++ unit tests** - Comprehensive test suite for Phase 2 logic ✅ **14 TESTS PASSING**
 - **Home Assistant integration** - Dashboard and blueprints ✅ **FULLY FUNCTIONAL**
 - **Development infrastructure** - Codespace ↔ Ubuntu-node workflow ✅ **DOCUMENTED & CONFIGURED**
 
@@ -20,18 +20,19 @@ The repository contains:
 
 The project follows a 3-phase development plan documented in `docs/presence-engine-spec.md`:
 
-### Phase 1: Z-Score Based Detection ✅ CURRENT IMPLEMENTATION
+### Phase 1: Z-Score Based Detection ✅ COMPLETE
 - Simple statistical presence detection using z-scores
 - Immediate state transitions (no debouncing - intentionally "twitchy")
 - Hysteresis via separate ON/OFF threshold multipliers (`k_on` > `k_off`)
 - Runtime tunable thresholds via Home Assistant
-- **Status**: Core logic fully implemented and tested
+- **Status**: Completed 2025-11-06
 
-### Phase 2: State Machine + Debouncing ⏳ PLANNED
+### Phase 2: State Machine + Debouncing ✅ CURRENT IMPLEMENTATION
 - 4-state machine (IDLE → DEBOUNCING_ON → PRESENT → DEBOUNCING_OFF)
-- Temporal filtering with configurable debounce timers
+- Temporal filtering with configurable debounce timers (3s on, 5s off, 30s absolute clear delay)
 - Eliminates false positives/negatives from Phase 1
-- **Status**: Not yet implemented
+- Runtime tunable debounce timers via Home Assistant
+- **Status**: Implemented 2025-11-07, ready for deployment
 
 ### Phase 3: Calibration + Environmental Hardening ⏳ PLANNED
 - Automated baseline calibration via Home Assistant services
@@ -45,18 +46,18 @@ The project follows a 3-phase development plan documented in `docs/presence-engi
 /workspaces/bed-presence-sensor/
 ├── esphome/                      # ESP32 firmware
 │   ├── custom_components/
-│   │   └── bed_presence_engine/  # Phase 1 C++ implementation
+│   │   └── bed_presence_engine/  # Phase 2 C++ implementation
 │   │       ├── __init__.py       # ESPHome component registration
-│   │       ├── binary_sensor.py  # ESPHome config schema
-│   │       ├── bed_presence.h    # C++ header (z-score logic)
-│   │       └── bed_presence.cpp  # C++ implementation (96 lines)
+│   │       ├── binary_sensor.py  # ESPHome config schema (with debounce params)
+│   │       ├── bed_presence.h    # C++ header (state machine + debouncing)
+│   │       └── bed_presence.cpp  # C++ implementation (162 lines)
 │   ├── packages/                 # Modular YAML configuration
 │   │   ├── hardware_m5stack_ld2410.yaml    # UART, GPIO, LD2410 sensor
-│   │   ├── presence_engine.yaml            # k_on/k_off entities
+│   │   ├── presence_engine.yaml            # k_on/k_off + debounce timer entities
 │   │   ├── services_calibration.yaml       # Placeholder services
 │   │   └── diagnostics.yaml                # Device health sensors
 │   ├── test/
-│   │   └── test_presence_engine.cpp        # 14 comprehensive unit tests (219 lines)
+│   │   └── test_presence_engine.cpp        # 14 comprehensive unit tests (355 lines, Phase 2)
 │   ├── bed-presence-detector.yaml          # Main ESPHome entry point
 │   ├── platformio.ini                      # PlatformIO test configuration
 │   └── secrets.yaml.example                # Template for WiFi credentials
@@ -72,6 +73,7 @@ The project follows a 3-phase development plan documented in `docs/presence-engi
 ├── docs/                         # Documentation
 │   ├── presence-engine-spec.md             # **SOURCE OF TRUTH** - 3-phase spec
 │   ├── phase1-hardware-setup.md            # Hardware setup guide for Phase 1
+│   ├── phase2-completion-steps.md          # Phase 2 deployment and testing guide
 │   ├── quickstart.md, calibration.md, faq.md, troubleshooting.md
 │   └── assets/                             # EMPTY placeholder files (0 bytes)
 ├── hardware/mounts/              # 3D printable parts
@@ -117,52 +119,65 @@ export HA_TOKEN="your-long-lived-access-token"
 pytest
 ```
 
-## Phase 1 Implementation Details
+## Phase 2 Implementation Details
 
-### Core Algorithm (bed_presence.cpp:47-77)
+### Core Algorithm (bed_presence.cpp:49-128)
 
-The Phase 1 presence engine implements simple z-score based detection:
+The Phase 2 presence engine implements state machine with temporal filtering:
 
 1. **Input**: `ld2410_still_energy` sensor value
-2. **Z-Score Calculation**: `z = (energy - μ) / σ`
-   - ✅ **CALIBRATED** baseline statistics: `μ_move_ = 6.7`, `σ_move_ = 3.5`
+2. **Z-Score Calculation**: `z_still = (energy - μ_still) / σ_still`
+   - ✅ **CALIBRATED** baseline statistics: `μ_still = 6.7`, `σ_still = 3.5`
    - Baseline collected: 2025-11-06 with empty bed (30 samples over 60 seconds)
    - Location: New sensor position looking at bed
-3. **Threshold Comparison with Hysteresis**:
-   - Turn ON when `z > k_on` (default: 9.0)
-   - Turn OFF when `z < k_off` (default: 4.0)
-   - Hysteresis zone: `k_off < z < k_on` (state remains unchanged)
-4. **Immediate State Changes**: No temporal debouncing (this is Phase 1 behavior)
+3. **State Machine Processing**:
+   - **IDLE**: Detects `z_still >= k_on` → enters DEBOUNCING_ON
+   - **DEBOUNCING_ON**: Waits 3 seconds with sustained high signal → PRESENT (or aborts to IDLE)
+   - **PRESENT**: Tracks high confidence signals, waits for absolute clear delay + low signal → DEBOUNCING_OFF
+   - **DEBOUNCING_OFF**: Waits 5 seconds with sustained low signal → IDLE (or aborts to PRESENT)
+4. **Temporal Filtering**: Debounce timers prevent rapid oscillation
 
-### Class Structure (bed_presence.h:20-62)
+### Class Structure (bed_presence.h:29-80)
 
 ```cpp
+enum State {
+  IDLE, DEBOUNCING_ON, PRESENT, DEBOUNCING_OFF
+};
+
 class BedPresenceEngine : public Component, public binary_sensor::BinarySensor {
   // Configuration (set from ESPHome YAML)
   float k_on_{9.0f};   // ON threshold multiplier
   float k_off_{4.0f};  // OFF threshold multiplier
 
   // ✅ CALIBRATED baseline (collected 2025-11-06, empty bed)
-  float mu_move_{6.7f};    // Mean still energy (empty bed)
-  float sigma_move_{3.5f}; // Std dev still energy (empty bed)
+  float mu_still_{6.7f};    // Mean still energy (semantic fix from mu_move_)
+  float sigma_still_{3.5f}; // Std dev still energy (semantic fix from sigma_move_)
 
-  // Simple boolean state (NO state machine in Phase 1)
-  bool is_occupied_{false};
+  // Phase 2: State machine
+  State current_state_{IDLE};
+  unsigned long debounce_start_time_{0};
+  unsigned long last_high_confidence_time_{0};
+  unsigned long on_debounce_ms_{3000};
+  unsigned long off_debounce_ms_{5000};
+  unsigned long abs_clear_delay_ms_{30000};
 
   // Runtime updaters called from Home Assistant
   void update_k_on(float k);
   void update_k_off(float k);
+  void update_on_debounce_ms(unsigned long ms);
+  void update_off_debounce_ms(unsigned long ms);
+  void update_abs_clear_delay_ms(unsigned long ms);
 };
 ```
 
-**Phase 1 Characteristics:**
+**Phase 2 Characteristics:**
 - ✅ Z-score normalization for statistical significance
 - ✅ Hysteresis to prevent rapid oscillation
-- ✅ Runtime tunable thresholds
-- ✅ State reason tracking
-- ❌ NO state machine enum (just boolean `is_occupied_`)
-- ❌ NO debounce timers (changes are immediate)
-- ❌ NO temporal filtering
+- ✅ Runtime tunable thresholds AND debounce timers
+- ✅ State reason tracking with debounce timing info
+- ✅ 4-state machine enum (IDLE, DEBOUNCING_ON, PRESENT, DEBOUNCING_OFF)
+- ✅ Debounce timers (3s on, 5s off, 30s absolute clear delay)
+- ✅ Temporal filtering prevents false positives/negatives
 
 ### ESPHome Configuration (presence_engine.yaml)
 
@@ -175,9 +190,12 @@ binary_sensor:
     id: bed_occupied
     k_on: 9.0
     k_off: 4.0
+    on_debounce_ms: 3000       # Phase 2: 3 seconds
+    off_debounce_ms: 5000      # Phase 2: 5 seconds
+    abs_clear_delay_ms: 30000  # Phase 2: 30 seconds
     state_reason:
       name: "Presence State Reason"         # text_sensor.presence_state_reason
-      id: presence_state_reason             # Shows z-score values
+      id: presence_state_reason             # Shows z-score and debounce timing
 
 number:
   - platform: template
@@ -199,24 +217,25 @@ number:
     restore_value: true
 ```
 
-**Note**: Entity names in Phase 1 are `k_on` and `k_off`, NOT `occupied_threshold` or `vacant_threshold`.
+**Note**: Phase 2 adds 3 new number entities for debounce timer configuration: `on_debounce_ms`, `off_debounce_ms`, `abs_clear_delay_ms`.
 
 ## C++ Unit Tests Status
 
 **Location**: `esphome/test/test_presence_engine.cpp`
 
-**Status**: ✅ FULLY IMPLEMENTED (219 lines, 14 test cases)
+**Status**: ✅ FULLY IMPLEMENTED (355 lines, 14 test cases, Phase 2)
 
-The tests create a `SimplePresenceEngine` class that replicates Phase 1 logic without ESPHome dependencies. All tests pass and validate:
+The tests create a `SimplePresenceEngine` class that replicates Phase 2 state machine logic without ESPHome dependencies. All tests pass and validate:
 
 - ✅ Z-score calculation accuracy
-- ✅ Initial state (vacant)
-- ✅ Transitions to occupied when `z > k_on`
-- ✅ Transitions to vacant when `z < k_off`
-- ✅ Hysteresis behavior (state remains in hysteresis zone)
-- ✅ No debouncing (immediate transitions)
-- ✅ Dynamic threshold updates (`update_k_on()`, `update_k_off()`)
-- ✅ State reason tracking
+- ✅ Initial state (IDLE with binary sensor OFF)
+- ✅ Debounced transitions (3s on, 5s off)
+- ✅ Debounce abort conditions (signal lost during debounce)
+- ✅ Absolute clear delay (prevents premature clearing)
+- ✅ High confidence timestamp tracking
+- ✅ State machine behavior (4 states: IDLE, DEBOUNCING_ON, PRESENT, DEBOUNCING_OFF)
+- ✅ Dynamic threshold and timer updates
+- ✅ State reason tracking with debounce timing
 - ✅ Edge cases (zero sigma, negative energy, very large values)
 
 **Run tests**: `cd esphome && platformio test -e native`
@@ -869,22 +888,28 @@ cat /workspaces/bed-presence-sensor/esphome/secrets.yaml
 - **Cause**: Calibration services are placeholders in Phase 1
 - **Expected**: Services exist but only log messages (Phase 3 will implement)
 
-### Phase 1 Presence Detection Issues
+### Phase 2 Presence Detection Issues
 
 **Problem**: Sensor always reports vacant
 - **Cause**: Baseline statistics (μ, σ) don't match actual sensor readings
 - **Fix**: Follow `docs/phase1-hardware-setup.md` to collect baseline data
 - **Debug**: Check `sensor.ld2410_still_energy` values in HA
-- **Verify**: Calculate z-score manually: `(energy - 100) / 20` should be >4 when occupied
+- **Verify**: Calculate z-score manually: `(energy - mu_still) / sigma_still` should be >k_on when occupied
 
-**Problem**: Sensor is "twitchy" (rapid state changes)
-- **Cause**: This is expected Phase 1 behavior (no debouncing)
-- **Fix**: Adjust `k_on`/`k_off` thresholds for wider hysteresis, or implement Phase 2
+**Problem**: Sensor still twitchy after Phase 2 upgrade
+- **Cause**: Debounce timers too short
+- **Fix**: Increase `on_debounce_ms` to 5000 (5 seconds), `abs_clear_delay_ms` to 60000 (60 seconds)
+- **Alternative**: Adjust `k_on`/`k_off` thresholds for wider hysteresis
 
-**Problem**: Sensor doesn't detect presence
-- **Cause**: k_on threshold too high, or baseline incorrect
-- **Fix**: Lower `k_on` via HA UI (try 3.0 or 2.5)
-- **Debug**: Check `text_sensor.presence_state_reason` to see z-score values
+**Problem**: Sensor too slow to respond
+- **Cause**: On debounce timer too long
+- **Fix**: Decrease `on_debounce_ms` to 2000 (2 seconds) via HA UI
+- **Debug**: Check logs for state transitions (IDLE → DEBOUNCING_ON → PRESENT)
+
+**Problem**: Sensor clears too quickly when lying still
+- **Cause**: Absolute clear delay too short
+- **Fix**: Increase `abs_clear_delay_ms` to 60000 (60 seconds) or higher
+- **Debug**: Check z-score values in `text_sensor.presence_state_reason` during stillness
 
 ## Additional Resources
 
@@ -892,6 +917,7 @@ cat /workspaces/bed-presence-sensor/esphome/secrets.yaml
 
 - `docs/presence-engine-spec.md` - Complete 3-phase engineering specification
 - `docs/phase1-hardware-setup.md` - Hardware wiring and baseline calibration guide
+- `docs/phase2-completion-steps.md` - Phase 2 deployment, testing, and troubleshooting guide
 - `docs/quickstart.md` - User-facing quickstart guide
 - `docs/calibration.md` - Calibration procedures (describes Phase 2/3 features)
 - `docs/troubleshooting.md` - User troubleshooting guide
@@ -906,39 +932,39 @@ cat /workspaces/bed-presence-sensor/esphome/secrets.yaml
 
 ## Summary of Current State
 
-**✅ Phase 1 DEPLOYED AND OPERATIONAL**:
-- ✅ Phase 1 z-score presence detection (**deployed on hardware**)
+**✅ Phase 2 IMPLEMENTED AND READY FOR DEPLOYMENT**:
+- ✅ Phase 2 state machine with temporal filtering (**code complete**)
 - ✅ M5Stack + LD2410 hardware (**operational**, connected to Home Assistant)
-- ✅ Baseline calibration (**completed**: μ=6.3%, σ=2.6%, collected 2025-11-05)
-- ✅ C++ unit tests (14 tests, all passing)
-- ✅ ESPHome firmware compilation
-- ✅ Runtime threshold tuning via Home Assistant (k_on=4.0, k_off=2.0)
+- ✅ Baseline calibration (**completed**: μ=6.7%, σ=3.5%, collected 2025-11-06)
+- ✅ C++ unit tests (14 Phase 2 tests, all passing)
+- ✅ ESPHome firmware compilation (successful, no errors)
+- ✅ Runtime tunable thresholds AND debounce timers via Home Assistant
 - ✅ CI/CD workflows (compile + test)
 - ✅ **Codespace ↔ Ubuntu-node workflow** (documented + configured)
 - ✅ GitHub Codespaces development environment
-- ✅ Comprehensive documentation
-- ✅ Home Assistant dashboard with correct Phase 1 entity names
+- ✅ Comprehensive documentation including Phase 2 deployment guide
+- ✅ Home Assistant dashboard with debounce timer controls
 - ✅ E2E tests with proper dependencies and entity references
 - ✅ **Ubuntu-node helper scripts** (`~/sync-and-flash.sh`, `~/flash-firmware.sh`)
 
 **What Needs Work** (Future Phases):
-- ⏳ **Phase 2**: State machine + debouncing (planned)
+- ⏳ **Phase 2 Deployment**: Flash Phase 2 firmware to hardware (code ready, awaiting deployment)
 - ⏳ **Phase 3**: Automated calibration services (planned)
 - ⚠️ Hardware assets are empty placeholders (STL, diagrams, demo)
 - ⚠️ Calibration services exist but are placeholders (Phase 3 implementation)
 
-**Phase 1 Completion Status**:
-1. ✅ **DONE**: Hardware deployed and operational
-2. ✅ **DONE**: Baseline recalibrated for new sensor position (2025-11-06)
-3. ✅ **DONE**: Firmware flashed with updated baseline
-4. ✅ **DONE**: Phase 1 presence detection validated
-   - Empty bed test: PASSED (3.0%, z=-1.06, OFF)
-   - Occupied bed test: PASSED (64.0%, z=16.37, ON)
-   - Hysteresis verified: Working correctly
-5. ✅ **PHASE 1 COMPLETE**
+**Phase 2 Completion Status**:
+1. ✅ **DONE**: 4-state machine implemented (IDLE, DEBOUNCING_ON, PRESENT, DEBOUNCING_OFF)
+2. ✅ **DONE**: Debounce timers added (3s on, 5s off, 30s absolute clear delay)
+3. ✅ **DONE**: Semantic fixes (mu_move_ → mu_still_, sigma_move_ → sigma_still_)
+4. ✅ **DONE**: 3 new Home Assistant entities (on_debounce_ms, off_debounce_ms, abs_clear_delay_ms)
+5. ✅ **DONE**: Unit tests updated with time mocking (14 tests passing)
+6. ✅ **DONE**: Dashboard updated with debounce timer controls
+7. ✅ **DONE**: Documentation created (`docs/phase2-completion-steps.md`)
+8. ✅ **PHASE 2 COMPLETE** (ready for deployment)
 
 **Next Steps**:
-- **FUTURE**: Implement Phase 2 state machine + debouncing
+- **IMMEDIATE**: Deploy Phase 2 firmware to ubuntu-node hardware
 - **FUTURE**: Implement Phase 3 automated calibration
 
 **Hardware Configuration**:

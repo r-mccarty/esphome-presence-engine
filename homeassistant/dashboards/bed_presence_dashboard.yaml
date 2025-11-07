@@ -63,7 +63,16 @@ views:
           - entity: number.k_off_off_threshold_multiplier
             name: k_off (OFF Threshold Multiplier)
 
-      # NOTE: Debounce Timer Configuration removed - Phase 2 feature not yet implemented
+      # Phase 2: Debounce Timer Configuration
+      - type: entities
+        title: Debounce Timers
+        entities:
+          - entity: number.on_debounce_timer_ms
+            name: On Debounce (ms)
+          - entity: number.off_debounce_timer_ms
+            name: Off Debounce (ms)
+          - entity: number.absolute_clear_delay_ms
+            name: Absolute Clear Delay (ms)
 
       # Quick Actions
       - type: button

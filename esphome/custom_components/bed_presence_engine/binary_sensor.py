@@ -10,6 +10,9 @@ from . import bed_presence_engine_ns, BedPresenceEngine
 CONF_ENERGY_SENSOR = "energy_sensor"
 CONF_K_ON = "k_on"
 CONF_K_OFF = "k_off"
+CONF_ON_DEBOUNCE_MS = "on_debounce_ms"
+CONF_OFF_DEBOUNCE_MS = "off_debounce_ms"
+CONF_ABS_CLEAR_DELAY_MS = "abs_clear_delay_ms"
 CONF_STATE_REASON = "state_reason"
 
 CONFIG_SCHEMA = binary_sensor.binary_sensor_schema(
@@ -19,8 +22,11 @@ CONFIG_SCHEMA = binary_sensor.binary_sensor_schema(
     {
         cv.GenerateID(): cv.declare_id(BedPresenceEngine),
         cv.Required(CONF_ENERGY_SENSOR): cv.use_id(sensor.Sensor),
-        cv.Optional(CONF_K_ON, default=4.0): cv.float_range(min=0.0, max=10.0),
-        cv.Optional(CONF_K_OFF, default=2.0): cv.float_range(min=0.0, max=10.0),
+        cv.Optional(CONF_K_ON, default=9.0): cv.float_range(min=0.0, max=15.0),
+        cv.Optional(CONF_K_OFF, default=4.0): cv.float_range(min=0.0, max=15.0),
+        cv.Optional(CONF_ON_DEBOUNCE_MS, default=3000): cv.positive_int,
+        cv.Optional(CONF_OFF_DEBOUNCE_MS, default=5000): cv.positive_int,
+        cv.Optional(CONF_ABS_CLEAR_DELAY_MS, default=30000): cv.positive_int,
         cv.Optional(CONF_STATE_REASON): text_sensor.text_sensor_schema(),
     }
 ).extend(cv.COMPONENT_SCHEMA)
@@ -36,6 +42,11 @@ async def to_code(config):
 
     cg.add(var.set_k_on(config[CONF_K_ON]))
     cg.add(var.set_k_off(config[CONF_K_OFF]))
+
+    # Phase 2: Debounce timers
+    cg.add(var.set_on_debounce_ms(config[CONF_ON_DEBOUNCE_MS]))
+    cg.add(var.set_off_debounce_ms(config[CONF_OFF_DEBOUNCE_MS]))
+    cg.add(var.set_abs_clear_delay_ms(config[CONF_ABS_CLEAR_DELAY_MS]))
 
     if CONF_STATE_REASON in config:
         reason_sensor = await text_sensor.new_text_sensor(config[CONF_STATE_REASON])

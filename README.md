@@ -21,33 +21,33 @@ This approach normalizes sensor readings to a statistical scale, making the dete
 
 ## Development Status
 
-✅ **Phase 1 COMPLETE & VALIDATED** | ⏳ **Phase 2 Planned** | ⏳ **Phase 3 Planned**
+✅ **Phase 1 COMPLETE** | ✅ **Phase 2 IMPLEMENTED** | ⏳ **Phase 3 Planned**
 
 This project follows a **3-phase development roadmap** (see `docs/presence-engine-spec.md` for details):
 
-### Phase 1: Z-Score Based Detection ✅ COMPLETE & VALIDATED
+### Phase 1: Z-Score Based Detection ✅ COMPLETE
 - ✅ **C++ Presence Engine**: Statistical z-score based detection with hysteresis
 - ✅ **Runtime Tunable Thresholds**: `k_on` and `k_off` adjustable via Home Assistant
 - ✅ **Hardware Deployed**: M5Stack + LD2410 tested and operational
 - ✅ **Baseline Calibrated**: Real sensor statistics collected and validated (μ=6.7%, σ=3.5%)
 - ✅ **Presence Detection Validated**: Correctly detects occupied (64% energy, z=16.37) and empty bed (3% energy, z=-1.06)
-- ✅ **Comprehensive C++ Unit Tests**: 14 tests covering all logic paths (219 lines, all passing)
-- ✅ **Home Assistant Dashboard**: Live visualization of energy levels and thresholds
-- ✅ **E2E Test Framework**: Python integration tests with proper dependencies
-- ✅ **CI/CD Workflows**: Automated compilation and testing
-- ✅ **Modular ESPHome Configuration**: Hardware, presence engine, services, diagnostics
-- ✅ **Complete Documentation**: Quickstart, hardware setup, troubleshooting, FAQ
+- ✅ **Status**: Completed 2025-11-06
 
-**Phase 1 Characteristics:**
-- Immediate state transitions (no temporal debouncing)
-- Hysteresis via separate ON/OFF thresholds (k_on=9.0, k_off=4.0) reduces oscillation
-- Tuned thresholds provide wide margin (ON=38.2%, OFF=20.7%)
-- State reason tracking shows z-score values for debugging
+### Phase 2: State Machine + Debouncing ✅ IMPLEMENTED (Ready for Deployment)
+- ✅ **4-State Machine**: IDLE → DEBOUNCING_ON → PRESENT → DEBOUNCING_OFF eliminates "twitchiness"
+- ✅ **Temporal Filtering**: 3-second on-debounce, 5-second off-debounce, 30-second absolute clear delay
+- ✅ **Runtime Tunable Timers**: Debounce parameters adjustable via Home Assistant without reflashing
+- ✅ **Comprehensive C++ Unit Tests**: 14 tests with time mocking (355 lines, all passing)
+- ✅ **Dashboard Updated**: Debounce timer controls added to Configuration view
+- ✅ **Semantic Fixes**: Variable naming corrected (mu_move_ → mu_still_ for accuracy)
+- ✅ **Status**: Implemented 2025-11-07, ready for hardware deployment
 
-### Phase 2: State Machine + Debouncing ⏳ PLANNED
-- 4-state machine (IDLE → DEBOUNCING_ON → PRESENT → DEBOUNCING_OFF)
-- Configurable debounce timers for temporal filtering
-- Eliminates false positives/negatives from rapid state changes
+**Phase 2 Characteristics:**
+- Debounced state transitions prevent false positives/negatives
+- Quick motion (< 3 seconds) won't trigger sensor
+- Sustained presence required to turn ON, sustained absence required to turn OFF
+- Absolute clear delay prevents premature clearing after recent movement
+- Binary sensor only changes on confirmed transitions (not during debouncing)
 
 ### Phase 3: Automated Calibration ⏳ PLANNED
 - Automated baseline calibration via Home Assistant services
@@ -55,27 +55,23 @@ This project follows a **3-phase development roadmap** (see `docs/presence-engin
 - Distance windowing to ignore specific zones
 - Calibration wizard UI in Home Assistant
 
-**Known Limitations (Phase 1):**
-- ⚠️ **Sensor remains "twitchy"** - Rapid state oscillations during movement in bed due to no temporal debouncing (Phase 2 feature)
-- ⚠️ Tuned thresholds (k_on=9.0, k_off=4.0) reduce but don't eliminate oscillation
-- ⚠️ Baseline statistics (μ, σ) must be manually recalibrated if sensor position changes
-- ⚠️ Hardware assets (STL mounts, wiring diagrams) are placeholders
-
 **Ready to Contribute?**
-- **Phase 2 implementation**: State machine and debounce timer logic to eliminate twitchiness
+- **Phase 2 deployment testing**: Deploy Phase 2 firmware and validate debouncing behavior
 - **Phase 3 implementation**: Automated calibration algorithm using MAD statistics
 - **Hardware assets**: 3D printable mounts and wiring diagrams
-- **Documentation**: Additional calibration guides and tuning recommendations
+- **Documentation**: Additional tuning guides and real-world deployment experiences
 
-## Key Features (Phase 1)
+## Key Features (Phase 2)
 
-*   **On-Device Statistical Analysis:** All z-score calculations run on the ESP32 for maximum speed and reliability. Not dependent on Wi-Fi or Home Assistant for decision-making.
+*   **On-Device Statistical Analysis:** All z-score calculations and state machine run on the ESP32 for maximum speed and reliability. Not dependent on Wi-Fi or Home Assistant for decision-making.
+*   **4-State Machine with Debouncing:** Temporal filtering eliminates false positives/negatives through sustained condition requirements (IDLE, DEBOUNCING_ON, PRESENT, DEBOUNCING_OFF).
 *   **Z-Score Normalization:** Converts raw sensor readings to statistical significance, making detection robust across different environments.
-*   **Hysteresis Thresholds:** Separate `k_on` and `k_off` thresholds prevent rapid state oscillation without complex state machines.
-*   **Runtime Tunable:** Adjust thresholds via Home Assistant entities without reflashing firmware - perfect for experimentation.
-*   **Transparent Operator Dashboard:** Live Lovelace dashboard visualizes energy levels, thresholds, and z-score values in real-time.
-*   **State Reason Tracking:** Text sensor shows the exact z-score value that triggered each state change for debugging.
-*   **Fully Tested:** 14 C++ unit tests validate all presence logic, plus Python E2E integration tests.
+*   **Hysteresis Thresholds:** Separate `k_on` and `k_off` thresholds prevent rapid state oscillation.
+*   **Runtime Tunable:** Adjust thresholds AND debounce timers via Home Assistant entities without reflashing firmware - perfect for experimentation.
+*   **Absolute Clear Delay:** Prevents premature clearing within 30 seconds of last high-confidence signal (configurable).
+*   **Transparent Operator Dashboard:** Live Lovelace dashboard visualizes energy levels, thresholds, debounce timers, and z-score values in real-time.
+*   **State Reason Tracking:** Text sensor shows z-score values and debounce timing for each state change for debugging.
+*   **Fully Tested:** 14 C++ unit tests with time mocking validate all state machine logic, plus Python E2E integration tests.
 
 ## Repository Structure
 
@@ -132,13 +128,13 @@ esphome compile bed-presence-detector.yaml
 
 **Step 2: Run C++ Unit Tests** ✅
 
-Run the 14 comprehensive unit tests that validate z-score calculation, state transitions, and hysteresis logic:
+Run the 14 comprehensive unit tests that validate z-score calculation, state machine transitions, debouncing logic, and edge cases:
 
 ```bash
 platformio test -e native
 ```
 
-All tests should pass. These tests verify the Phase 1 presence engine logic in isolation without needing hardware.
+All tests should pass. These tests verify the Phase 2 presence engine logic in isolation without needing hardware.
 
 **Step 3: Flash to Device**
 
@@ -150,11 +146,13 @@ esphome run bed-presence-detector.yaml
 
 **Step 4: Manual Baseline Calibration**
 
-⚠️ **Important**: Phase 1 requires manual baseline calibration. See `docs/phase1-hardware-setup.md` for the procedure to:
+⚠️ **Important**: Phase 2 requires manual baseline calibration. See `docs/phase1-hardware-setup.md` for the procedure to:
 1. Collect 30-60 seconds of sensor readings with an empty bed
 2. Calculate mean (μ) and standard deviation (σ)
-3. Update values in `esphome/custom_components/bed_presence_engine/bed_presence.h` (lines 43-46)
+3. Update values in `esphome/custom_components/bed_presence_engine/bed_presence.h` (lines 60-61: mu_still_, sigma_still_)
 4. Recompile and reflash
+
+**Note**: Current baseline is μ=6.7%, σ=3.5% (collected 2025-11-06, suitable for new sensor position).
 
 ### 2. Home Assistant Configuration
 
@@ -170,10 +168,12 @@ Once the device is connected to Home Assistant via ESPHome integration:
     - Copy `homeassistant/blueprints/automation/bed_presence_automation.yaml` to `config/blueprints/automation/`
     - Create automations via Settings → Automations & Scenes → Create Automation → Use Blueprint
 
-3.  **Tune Thresholds:**
+3.  **Tune Thresholds & Debounce Timers:**
     - Adjust `k_on` (ON threshold) and `k_off` (OFF threshold) via the Configuration view
     - Defaults are k_on=9.0 and k_off=4.0 (tuned to reduce false positives)
+    - **Phase 2**: Adjust debounce timers (on_debounce_ms=3000, off_debounce_ms=5000, abs_clear_delay_ms=30000)
     - Changes take effect immediately without reflashing
+    - See `docs/phase2-completion-steps.md` for tuning guidance
 
 ### 3. End-to-End (E2E) Integration Testing (Optional)
 
