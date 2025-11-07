@@ -662,7 +662,7 @@ ssh ubuntu-node "cat ~/bed-presence-sensor/.env.local" > /workspaces/bed-presenc
 # Verify
 cat /workspaces/bed-presence-sensor/.env.local
 # Should show: HA_URL=http://192.168.0.148:8123
-#              HA_TOKEN=eyJhbGci... (long token string)
+#              HA_TOKEN=your-long-lived-access-token-here
 ```
 
 **Why**: Ubuntu-node has the real credentials that work with the physical network and Home Assistant instance. Codespace may have placeholders or stale values.

@@ -726,7 +726,7 @@ pip install esphome platformio pytest pytest-asyncio yamllint black
 # Home Assistant Connection Configuration
 HA_URL=http://192.168.0.148:8123
 HA_WS_URL=ws://192.168.0.148:8123/api/websocket
-HA_TOKEN=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...  # Long-lived access token
+HA_TOKEN=your-long-lived-access-token-here
 ```
 
 **Used by**:
