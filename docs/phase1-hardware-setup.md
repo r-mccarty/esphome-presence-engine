@@ -244,15 +244,17 @@ Once Phase 1 is validated:
 
 ## Quick Reference
 
+Phase 1 uses `ld2410_still_energy` exclusively; moving-energy baselines are not part of the current algorithm.
+
 **Default Phase 1 Parameters:**
-- μ_move = 100.0 (placeholder - UPDATE THIS)
-- σ_move = 20.0 (placeholder - UPDATE THIS)
+- μ_still = 6.7 (production empty-bed mean; replace with your measured value)
+- σ_still = 3.5 (production empty-bed std dev; replace with your measured value)
 - k_on = 4.0 (4 standard deviations to turn ON)
 - k_off = 2.0 (2 standard deviations to turn OFF)
 
 **Phase 1 Logic:**
 ```
-z_score = (energy - μ) / σ
+z_score = (still_energy - μ_still) / σ_still
 if (not occupied and z_score > k_on): turn ON
 if (occupied and z_score < k_off): turn OFF
 ```
