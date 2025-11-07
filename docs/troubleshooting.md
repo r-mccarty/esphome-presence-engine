@@ -259,6 +259,109 @@ To verify threshold behavior:
 
 Services like `esphome.bed_presence_detector_start_calibration` exist but are placeholders.
 
+## Known Issues and Limitations
+
+### Placeholder Calibration Services
+
+**Status:** Phase 2 current, Phase 3 planned
+
+**Issue:** Calibration services exist in ESPHome but only log messages. They do not perform actual calibration.
+
+**Services affected:**
+- `esphome.bed_presence_detector_start_calibration` - Logs "Starting calibration..." but doesn't collect data
+- `esphome.bed_presence_detector_stop_calibration` - Logs "Stopping calibration..." but doesn't calculate statistics
+- `esphome.bed_presence_detector_reset_to_defaults` - Functional (resets thresholds to defaults)
+
+**Workaround:** Use manual calibration process:
+1. Run `collect_baseline.py` on ubuntu-node to collect data
+2. Update `bed_presence.h` with calculated μ and σ values
+3. Recompile and flash firmware
+
+**Planned fix:** Phase 3 will implement full calibration service functionality with MAD-based statistical analysis.
+
+---
+
+### Empty Hardware Assets
+
+**Issue:** The following files exist but are 0-byte placeholders:
+
+**Files:**
+- `hardware/mounts/m5stack_side_mount.stl` - 3D printable mount
+- `docs/assets/wiring_diagram.png` - Wiring diagram image
+- `docs/assets/demo.gif` - Demo animation
+
+**Impact:** Users cannot access 3D printable mounts or visual wiring diagrams.
+
+**Workaround:**
+- Wiring instructions are available in text format in `docs/HARDWARE_SETUP.md`
+- Mount design can be created based on M5Stack dimensions
+
+**Planned fix:** Community contributions welcome for hardware assets.
+
+---
+
+### Network Access Limitations from Codespaces
+
+**Issue:** GitHub Codespaces cannot directly access local Home Assistant instance at 192.168.0.148:8123.
+
+**Reason:** Codespaces runs on GitHub's cloud infrastructure, separate from your local network.
+
+**Impact:**
+- Cannot browse Home Assistant web UI directly from Codespaces
+- Python scripts cannot connect to HA API without tunneling
+
+**Workaround:**
+
+**For web UI access:**
+```bash
+# In Codespace terminal
+ssh -L 8123:192.168.0.148:8123 ubuntu-node
+# Then browse to http://localhost:8123
+```
+
+**For Python scripts:**
+```bash
+# Option 1: Run directly on ubuntu-node (recommended)
+ssh ubuntu-node "cd ~/bed-presence-sensor && python3 scripts/collect_baseline.py"
+
+# Option 2: Use SSH tunnel from Codespace
+# Terminal 1: ssh -L 8123:192.168.0.148:8123 ubuntu-node
+# Terminal 2: python3 scripts/collect_baseline.py
+```
+
+**Detailed information:** See [DEVELOPMENT_WORKFLOW.md](DEVELOPMENT_WORKFLOW.md) for complete network access guide.
+
+---
+
+### E2E Tests Incomplete
+
+**Issue:** Python E2E integration tests framework exists but some tests are incomplete or skipped.
+
+**Files:** `tests/e2e/test_calibration_flow.py`
+
+**Status:**
+- ✅ Test framework functional
+- ✅ Phase 1 and Phase 2 entity tests working
+- ⚠️ Phase 3 calibration service tests skipped (services not implemented)
+
+**Impact:** Integration tests don't fully validate Phase 3 features (which are planned, not implemented).
+
+**Workaround:** Manual testing for calibration services until Phase 3 implementation.
+
+---
+
+### Variable Naming Inconsistency (Resolved)
+
+**Historical issue:** In early Phase 1 code, variables were named `mu_move_` and `sigma_move_` despite using still energy.
+
+**Resolution:** Fixed in Phase 2 with semantic correction:
+- `mu_move_` → `mu_still_` (lines 60 in bed_presence.h)
+- `sigma_move_` → `sigma_still_` (lines 61 in bed_presence.h)
+
+**Current status:** ✅ Resolved, variable names now match algorithm (still energy only).
+
+---
+
 ## Getting Help
 
 If you continue to experience issues:
@@ -272,6 +375,8 @@ If you continue to experience issues:
    - FAQ: [faq.md](faq.md)
    - Calibration guide: [calibration.md](calibration.md)
    - Phase 2 completion guide: [phase2-completion-steps.md](phase2-completion-steps.md)
+   - Architecture: [ARCHITECTURE.md](ARCHITECTURE.md)
+   - Development workflow: [DEVELOPMENT_WORKFLOW.md](DEVELOPMENT_WORKFLOW.md)
 3. **Review GitHub Issues**: Check for similar reported issues
 4. **Report issues** with:
    - Full diagnostic info above
