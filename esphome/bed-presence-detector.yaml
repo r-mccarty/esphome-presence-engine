@@ -1,3 +1,4 @@
+---
 # Bed Presence Detector - Main Configuration File
 # This is the entry point that brings together all the packages
 
@@ -15,7 +16,7 @@ external_components:
   - source:
       type: local
       path: custom_components
-    components: [ bed_presence_engine ]
+    components: [bed_presence_engine]
 
 # Include all package configurations
 packages:
