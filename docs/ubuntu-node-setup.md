@@ -6,6 +6,7 @@
 **OS**: Ubuntu 24.04 LTS (Linux kernel 6.14.0-34-generic)
 **Hostname**: `home-assistant-node`
 **Primary User**: `ryan`
+**Cloudflare SSH Hostname**: `ssh.hardwareos.com`
 **Location**: Local LAN
 
 ## Network Configuration
@@ -17,10 +18,10 @@
 ### Public Access via Cloudflare Tunnel
 
 The node uses Cloudflare Tunnel for secure external access:
-- Home Assistant: `your-domain.com` → `localhost:8123`
-- SSH: `ssh.your-domain.com` → `localhost:22`
+- SSH: `ssh.hardwareos.com` → `localhost:22`
+- Home Assistant: see `/etc/cloudflared/config.yml` for the current hostname → `localhost:8123`
 
-**Note**: Domain names and tunnel configuration are stored on the node in `/etc/cloudflared/config.yml`
+> **Note**: Cloudflare ingress rules live in `/etc/cloudflared/config.yml` on the node. Update that file (and restart the `cloudflared` service) if hostnames change.
 
 ## SSH Access Configuration
 
@@ -39,10 +40,10 @@ cat /etc/cloudflared/config.yml
 **Tunnel ingress configuration example**:
 ```yaml
 ingress:
-  - hostname: your-domain.com
+  - hostname: ha.hardwareos.com      # See /etc/cloudflared/config.yml for the authoritative HA hostname
     service: http://localhost:8123
 
-  - hostname: ssh.your-domain.com
+  - hostname: ssh.hardwareos.com
     service: ssh://localhost:22
 
   - service: http_status:404
@@ -50,37 +51,74 @@ ingress:
 
 ### Connecting via SSH from Codespaces/Remote
 
-**Prerequisites**:
-- Install cloudflared client
-- Have SSH key authorized on the node
+You reach the node through Cloudflare Tunnel at `ssh.hardwareos.com`. Cloudflare Access for this hostname currently allows direct tunneling (no Cloudflare login prompt), so you only need working SSH credentials for the `claude-temp` user.
 
-**Installation** (on connecting machine):
+#### Prerequisites
+
+1. **cloudflared CLI** – provides the SOCKS tunnel that proxies SSH through Cloudflare.  
+   - *Codespaces*: installed automatically by `.devcontainer/devcontainer.json` (run `cloudflared --version` to verify, currently `2025.11.1`).  
+   - *Other environments*: download the static binary and install it on your `$PATH`.
+     ```bash
+     curl -fsSLo /tmp/cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
+     sudo install -m 0755 /tmp/cloudflared /usr/local/bin/cloudflared
+     rm /tmp/cloudflared
+     ```
+2. **SSH config entry** – ensures every `ssh ubuntu-node` command automatically runs through the Cloudflare proxy.
+   ```
+   Host ubuntu-node
+     HostName ssh.hardwareos.com
+     User claude-temp
+     IdentityFile ~/.ssh/claude-temp
+     ProxyCommand cloudflared access ssh --hostname ssh.hardwareos.com
+     StrictHostKeyChecking no
+     UserKnownHostsFile /dev/null
+   ```
+   > **Codespaces automation**: the devcontainer creates this block (with the `IdentityFile` line) as soon as the container comes up.
+3. **Authorized SSH key** – the `claude-temp` user only accepts key-based auth. You can either provision a reusable key via a Codespaces secret (recommended) or generate a one-off key per Codespace.
+
+#### Option A: Reusable key via Codespaces secret
+
+1. Generate an ed25519 key once on a trusted machine:
+   ```bash
+   ssh-keygen -t ed25519 -f ~/.ssh/claude-temp -C "claude-temp reusable"
+   ```
+2. Add the **public** half to `/home/claude-temp/.ssh/authorized_keys` on the ubuntu-node (ask the node owner if you do not have access yet).
+3. Store the **private** key as a GitHub Codespaces secret named `SSH_CLAUDE_TEMP_KEY`.  
+   - GitHub → Settings → Codespaces → Secrets → New secret → Name `SSH_CLAUDE_TEMP_KEY`, Value = full private key contents (including the `-----BEGIN...` lines).  
+   - Secrets are scoped to **your GitHub account**; other contributors cannot read or use them, even though this repository is public.
+4. On the next Codespace rebuild, the devcontainer will detect `SSH_CLAUDE_TEMP_KEY`, write it to `~/.ssh/claude-temp`, and protect it with `0600` permissions automatically. Verify with:
+   ```bash
+   ls -l ~/.ssh/claude-temp
+   ```
+
+> **Security note**: If you revoke access to the ubuntu-node, delete the secret and remove the corresponding public key from `/home/claude-temp/.ssh/authorized_keys`.
+
+#### Option B: One-off key per Codespace
+
+If you prefer short-lived credentials, generate the key inside the Codespace:
 ```bash
-wget https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
-chmod +x cloudflared-linux-amd64
-sudo mv cloudflared-linux-amd64 /usr/local/bin/cloudflared
+ssh-keygen -t ed25519 -f ~/.ssh/claude-temp -C "claude-temp@$(hostname)"
+cat ~/.ssh/claude-temp.pub
 ```
-
-**SSH Config** (~/.ssh/config):
-```
-Host ubuntu-node
-  HostName ssh.your-domain.com
-  User your-username
-  IdentityFile ~/.ssh/your_key
-  ProxyCommand cloudflared access ssh --hostname ssh.your-domain.com
-  StrictHostKeyChecking no
-  UserKnownHostsFile /dev/null
-```
-
-**Connect**:
+Send the `.pub` contents to the node owner (`ryan`) or, if you already have sudo on the node from a previous session, add it yourself:
 ```bash
+sudo install -d -m 0700 -o claude-temp -g claude-temp /home/claude-temp/.ssh
+sudo tee -a /home/claude-temp/.ssh/authorized_keys <<<"ssh-ed25519 AAAA... generated-on-codespace"
+sudo chown claude-temp:claude-temp /home/claude-temp/.ssh/authorized_keys
+sudo chmod 600 /home/claude-temp/.ssh/authorized_keys
+```
+
+#### Connection workflow
+
+```bash
+# Quick connectivity test
+ssh -vv ubuntu-node true
+
+# Start an interactive shell
 ssh ubuntu-node
 ```
 
-Or directly:
-```bash
-ssh -i ~/.ssh/your_key -o ProxyCommand="cloudflared access ssh --hostname ssh.your-domain.com" your-username@ssh.your-domain.com
-```
+If authentication fails, double-check that the private key path matches the `IdentityFile` setting and that the matching public key exists in `/home/claude-temp/.ssh/authorized_keys`. Because the Cloudflare tunnel does not prompt for Access authentication, any failure at this stage is almost always due to missing/incorrect SSH keys.
 
 ### SSH Port Forwarding for Home Assistant Access
 
@@ -205,7 +243,7 @@ cat /opt/homeassistant/config/configuration.yaml
 ### Web Access
 
 - **Local**: http://YOUR_NODE_IP:8123 (find IP via `ip addr` or router DHCP list)
-- **Public**: https://your-domain.com (via Cloudflare Tunnel)
+- **Public**: `https://<cf-ha-hostname>` (via Cloudflare Tunnel; see `/etc/cloudflared/config.yml` for the active value)
 
 ### API Access
 
@@ -899,7 +937,7 @@ pip install -r requirements.txt
 ```bash
 export HA_URL="ws://YOUR_NODE_IP:8123/api/websocket"  # Local network
 # or
-export HA_URL="ws://your-domain.com:8123/api/websocket"  # Via Cloudflare
+export HA_URL="ws://<cf-ha-hostname>:8123/api/websocket"  # Via Cloudflare tunnel
 
 export HA_TOKEN="your-long-lived-access-token-here"
 ```

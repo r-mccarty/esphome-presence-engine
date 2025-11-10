@@ -20,7 +20,7 @@
 
   // Runs as the 'vscode' user after the container is created.
   // Using a single string with '&&' to ensure sequential execution in a shell.
-  "postCreateCommand": "mkdir -p ~/.config/vscode-dev-containers && touch ~/.config/vscode-dev-containers/first-run-notice-already-displayed && pip install --upgrade pip && pip install esphome platformio pytest pytest-asyncio yamllint black && cd tests/e2e && pip install -r requirements.txt && cd ../.. && . /usr/local/share/nvm/nvm.sh && npm i -g @openai/codex @google/gemini-cli",
+  "postCreateCommand": "mkdir -p ~/.config/vscode-dev-containers && touch ~/.config/vscode-dev-containers/first-run-notice-already-displayed && pip install --upgrade pip && pip install esphome platformio pytest pytest-asyncio yamllint black && cd tests/e2e && pip install -r requirements.txt && cd ../.. && . /usr/local/share/nvm/nvm.sh && npm i -g @openai/codex @google/gemini-cli && curl -fsSLo /tmp/cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 && sudo install -m 0755 /tmp/cloudflared /usr/local/bin/cloudflared && rm /tmp/cloudflared && mkdir -p ~/.ssh && touch ~/.ssh/config && (grep -q 'Host ubuntu-node' ~/.ssh/config || printf '%s\\n' 'Host ubuntu-node' '  HostName ssh.hardwareos.com' '  User claude-temp' '  IdentityFile ~/.ssh/claude-temp' '  ProxyCommand cloudflared access ssh --hostname ssh.hardwareos.com' '  StrictHostKeyChecking no' '  UserKnownHostsFile /dev/null' >> ~/.ssh/config) && if [ -n \"${SSH_CLAUDE_TEMP_KEY:-}\" ]; then install -d -m 700 ~/.ssh && umask 177 && printf '%s\\n' \"${SSH_CLAUDE_TEMP_KEY}\" > ~/.ssh/claude-temp && chmod 600 ~/.ssh/claude-temp; fi",
   
   "customizations": {
     "vscode": {
