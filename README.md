@@ -1,135 +1,134 @@
-# Home Assistant Bed Presence Detector
+# Presence Detection Engine
 
-[![Compile Firmware](https://github.com/r-mccarty/bed-presence-sensor/actions/workflows/compile_firmware.yml/badge.svg?branch=main&event=push)](https://github.com/r-mccarty/bed-presence-sensor/actions/workflows/compile_firmware.yml)
-[![Lint YAML](https://github.com/r-mccarty/bed-presence-sensor/actions/workflows/lint_yaml.yml/badge.svg?branch=main&event=push)](https://github.com/r-mccarty/bed-presence-sensor/actions/workflows/lint_yaml.yml)
+[![Compile Firmware](https://github.com/r-mccarty/presence-dectection-engine/actions/workflows/compile_firmware.yml/badge.svg?branch=main&event=push)](https://github.com/r-mccarty/presence-dectection-engine/actions/workflows/compile_firmware.yml)
+[![Lint YAML](https://github.com/r-mccarty/presence-dectection-engine/actions/workflows/lint_yaml.yml/badge.svg?branch=main&event=push)](https://github.com/r-mccarty/presence-dectection-engine/actions/workflows/lint_yaml.yml)
 
-A high-reliability, tunable, and transparent bed-presence detection solution for Home Assistant using an ESP32 microcontroller and an LD2410 mmWave radar sensor.
+An open ESPHome/ESP32 presence engine that combines mmWave radar telemetry, on-device z-score analysis, and a debounced 4-state machine to deliver reliable occupancy signals for Home Assistant. The current reference configuration targets bed presence using an LD2410 sensor, but the architecture, tuning controls, and Home Assistant tooling are designed to generalize to other localized presence use cases.
 
-This project implements a **state machine with temporal filtering** and **statistical z-score analysis** to provide robust presence detection that is resilient to environmental changes and false positives.
+## Project Snapshot
 
-## 🎯 Development Status
+| Phase | Scope | Status |
+|-------|-------|--------|
+| Phase 1 | Z-score detector with hysteresis & runtime thresholds | ✅ Complete |
+| Phase 2 | Debounced 4-state machine + absolute clear guard | ✅ Deployed |
+| Phase 3 | MAD-based auto calibration, distance windowing, change-reason telemetry | ✅ Deployed |
+| Phase 3.1+ | Calibration persistence, analytics, monitoring | 🔄 Planning |
 
-*   **Phase 1: Z-Score Detection** - Core statistical engine with hysteresis ✅ **COMPLETE**
-*   **Phase 2: State Machine + Debouncing** - Temporal filtering for reliability ✅ **DEPLOYED**
-*   **Phase 3: Automated Calibration + Distance Windowing** - MAD statistics + HA services ✅ **DEPLOYED**
+See the [Development Scorecard](docs/development-scorecard.md) for release dates, validation evidence, and upcoming work.
 
-See the [Development Scorecard](docs/development-scorecard.md) for a consolidated view of what shipped in each phase, validation evidence, and upcoming work.
+## Why This Engine?
 
-For a complete technical breakdown, see the [**Project Architecture**](docs/ARCHITECTURE.md).
+- **Fully on-device analytics** – μ/σ maintenance, z-scores, and state transitions happen on the ESP32, so automations react instantly even if Home Assistant is offline.
+- **Transparent decision-making** – `Presence State Reason` and `Presence Change Reason` text sensors expose z-scores, debounce timers, absolute-clear timers, and calibration events.
+- **Runtime tuning everywhere** – Thresholds, debounce durations, absolute-clear delay, and the distance window are all `number` entities you can adjust live in Home Assistant.
+- **Guided calibration** – MAD-based baseline collection is wrapped in ESPHome services plus a Home Assistant wizard with helper entities, buttons, and status telemetry.
+- **Two-machine workflow ready** – Codespaces stays focused on editing/tests, while ubuntu-node handles flashing, HA API access, and hardware interactions.
+- **Tested & documented** – 16 PlatformIO unit tests cover the engine, with Python E2E tests validating the HA integration; documentation spans quickstart, workflow, hardware, and troubleshooting guides.
 
-## ✨ Key Features
+## Documentation Map
 
-*   **On-Device Statistical Analysis** - All z-score calculations run on ESP32 for maximum speed
-*   **4-State Machine with Debouncing** - Eliminates false positives/negatives through temporal filtering
-*   **Distance Windowing** - Ignore noise sources outside the configured min/max range
-*   **Automated Calibration** - MAD-based baseline service (`calibrate_start_baseline`) tunes μ/σ in-place
-*   **Guided Calibration Wizard** - Home Assistant helpers/scripts walk non-technical users through safe recalibration with status tracking
-*   **Runtime Tunable** - Adjust thresholds, timers, and distance window via Home Assistant without reflashing
-*   **Transparent Dashboard** - Live visualization of energy levels, z-scores, and state transitions
-*   **Fully Tested** - 16 C++ unit tests plus Python E2E integration tests
+| Doc | Purpose |
+|-----|---------|
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Deep dive on the C++ engine, z-score math, and testing strategy |
+| [docs/presence-engine-spec.md](docs/presence-engine-spec.md) | Phase requirements and acceptance criteria |
+| [docs/development-scorecard.md](docs/development-scorecard.md) | Historical log + Phase 3.1+ objectives |
+| [docs/DEVELOPMENT_WORKFLOW.md](docs/DEVELOPMENT_WORKFLOW.md) | Codespaces ↔ ubuntu-node workflow (flashing, logs, tunneling) |
+| [docs/HARDWARE_SETUP.md](docs/HARDWARE_SETUP.md) | Wiring, reference mounting, calibration environment |
+| [docs/quickstart.md](docs/quickstart.md) | Operator onboarding for firmware + Home Assistant |
+| [docs/troubleshooting.md](docs/troubleshooting.md) | Runbooks for common sensor/HA issues |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Environment setup, secrets, CI expectations |
 
-## 📚 Documentation
+## Getting Started
 
-| Guide | Description |
-|-------|-------------|
-| [**Development Scorecard**](docs/development-scorecard.md) | Snapshot of Phase 1–3 accomplishments, validation status, and forward-looking tasks |
-| [**Architecture**](docs/ARCHITECTURE.md) | Technical deep-dive: algorithms, state machine logic, and testing strategy |
-| [**Hardware Setup**](docs/HARDWARE_SETUP.md) | Wiring, sensor calibration, and hardware configuration |
-| [**Development Workflow**](docs/DEVELOPMENT_WORKFLOW.md) | Codespace ↔ ubuntu-node workflow, network access, and common tasks |
-| [**Contributing**](CONTRIBUTING.md) | Environment setup, secrets management, and development commands |
-| [**Calibration Helpers**](homeassistant/configuration_helpers.yaml) | HA helper entities + scripts powering the guided wizard |
-| [**Troubleshooting**](docs/troubleshooting.md) | Common issues and solutions |
-| [**FAQ**](docs/faq.md) | Frequently asked questions |
-| [**Quick Start**](docs/quickstart.md) | User-facing quick start guide |
+### 1. Assemble Hardware
 
-## 🚀 Quick Start
+Follow the [Hardware Setup](docs/HARDWARE_SETUP.md) guide for wiring the LD2410 to an M5Stack (ESP32) or another ESP32 board. The defaults assume the still-energy channel is pointed at a bed, but you can re-mount and retune for other zones.
 
-### 1. Hardware
-
-Assemble the required hardware by following the [**Hardware Setup Guide**](docs/HARDWARE_SETUP.md).
-
-**Required Components:**
-- M5Stack Basic (ESP32) or compatible ESP32 board
+**Required components**
+- ESP32 dev kit (M5Stack Basic reference build)
 - LD2410 mmWave radar sensor
-- USB cable for programming
-- Jumper wires for UART connection
+- USB cable for flashing/logs
+- 4x jumper wires for UART (TX/RX/5V/GND)
 
-### 2. Development Environment
+### 2. Prepare the Development Environment
 
-This repository is pre-configured for **GitHub Codespaces**:
+Use GitHub Codespaces (preconfigured) or a local environment described in [CONTRIBUTING.md](CONTRIBUTING.md).
 
-[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/r-mccarty/bed-presence-sensor)
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/r-mccarty/presence-dectection-engine)
 
-All required tools (ESPHome, PlatformIO, Python) are automatically installed.
+Secrets live on `ubuntu-node`:
+- `esphome/secrets.yaml` – WiFi/AP/OTA credentials for firmware
+- `.env.local` – Home Assistant API access for Python tooling/tests
 
-For local development setup, see the [**Contributing Guide**](CONTRIBUTING.md).
+### 3. Build, Test, and Flash (Two-Machine Workflow)
 
-### 3. Compile and Flash
+1. **Codespaces / local editing**
+   ```bash
+   cd esphome
+   platformio test -e native          # C++ unit tests
+   yamllint esphome/ homeassistant/   # YAML checks
+   ```
+2. **Commit and push your changes.**
+3. **ubuntu-node (hardware + HA access)**
+   ```bash
+   ssh user@ubuntu-node
+   cd ~/presence-dectection-engine
+   git pull
+   esphome run esphome/bed-presence-detector.yaml   # compile + flash
+   esphome logs esphome/bed-presence-detector.yaml  # verify runtime
+   ```
+4. **Home Assistant** – import/update dashboard, helpers, and blueprints from the `homeassistant/` directory, then monitor the change-reason sensors while you fine-tune thresholds.
 
-Follow the [**Development Workflow**](docs/DEVELOPMENT_WORKFLOW.md) to compile and flash the firmware:
+Detailed steps live in [docs/DEVELOPMENT_WORKFLOW.md](docs/DEVELOPMENT_WORKFLOW.md).
 
-```bash
-cd esphome
-esphome compile bed-presence-detector.yaml  # Compile firmware
-platformio test -e native                   # Run C++ unit tests (14 tests)
-esphome run bed-presence-detector.yaml      # Flash to device
-```
+### 4. Integrate with Home Assistant
 
-### 4. Home Assistant Integration
+1. Allow ESPHome auto-discovery to add the device, enter the API key from `secrets.yaml`, and confirm entities appear.
+2. Deploy the Lovelace dashboard (`homeassistant/dashboards/bed_presence_dashboard.yaml`) for live charts, tuning controls, and the Calibration Wizard.
+3. Use the calibration helpers (`homeassistant/configuration_helpers.yaml`) to run MAD baseline collection, reset defaults, or widen the distance window when experimenting.
+4. Automate with the blueprint under `homeassistant/blueprints/automation/`.
 
-Once the device connects to Home Assistant:
+Consult the [Quickstart](docs/quickstart.md) for the full workflow and screenshots.
 
-1. **Deploy Dashboard**: Copy `homeassistant/dashboards/bed_presence_dashboard.yaml` to Home Assistant
-2. **Tune Parameters**: Adjust thresholds and debounce timers via the Configuration view
-3. **Monitor**: Use `text_sensor.presence_state_reason` + `text_sensor.presence_change_reason` for real-time debugging
-
-See the [**Quick Start Guide**](docs/quickstart.md) for detailed instructions.
-
-## 🔧 Repository Structure
+## Repository Layout
 
 ```
 .
-├── docs/                      # Documentation
-│   ├── ARCHITECTURE.md        # Technical deep-dive
-│   ├── DEVELOPMENT_WORKFLOW.md # Development workflow guide
-│   ├── HARDWARE_SETUP.md      # Hardware setup and calibration
-│   └── ...
-├── esphome/                   # ESP32 firmware
-│   ├── custom_components/     # C++ presence engine
-│   ├── packages/              # Modular YAML configuration
-│   ├── test/                  # C++ unit tests (14 tests)
-│   └── bed-presence-detector.yaml # Main ESPHome config
-├── homeassistant/             # Home Assistant configuration
-│   ├── blueprints/            # Automation blueprints
-│   └── dashboards/            # Lovelace dashboard
-├── tests/e2e/                 # Python E2E integration tests
-├── CONTRIBUTING.md            # Developer setup guide
-└── CLAUDE.md                  # AI agent context map
+├── docs/                  # Specs, architecture, workflow, quickstart, troubleshooting
+├── esphome/               # Firmware: custom component, packages, PlatformIO tests
+├── homeassistant/         # Dashboards, blueprints, helper definitions
+├── tests/e2e/             # Python HA integration tests (ubuntu-node only)
+├── scripts/               # Utilities (e.g., legacy baseline collection)
+├── hardware/              # CAD placeholders for mounts/enclosures
+├── CLAUDE.md              # Canonical AI agent context (mirrored as AGENTS.md/GEMINI.md)
+└── README.md              # You are here
 ```
 
-## 🤝 Contributing
+## Contributing
 
-Contributions are welcome! Please see the [**Contributing Guide**](CONTRIBUTING.md) for:
+We welcome improvements in four main areas:
+1. **Core engine** – new telemetry, better analytics, configurable heuristics for non-bed scenarios.
+2. **Calibration persistence + analytics** – Phase 3.1+ work to store baseline history, expose restlessness metrics, or add alerts.
+3. **Home Assistant UX** – dashboard/blueprint refinements, onboarding flows, and helper automation coverage.
+4. **Docs & assets** – diagrams, CAD mounts, troubleshooting guides, and translations.
 
-- Environment setup (Codespaces, local development)
-- Secrets management (WiFi credentials, Home Assistant tokens)
-- Development commands (compile, test, flash)
-- CI/CD workflows
+Before opening a PR:
+- Run unit tests/YAML lint, describe the two-machine workflow you followed, and list the tests you executed.
+- Update documentation and Home Assistant assets for any behavioral changes.
+- Follow conventional commits (`type: subject`) and keep subjects ≤72 characters.
 
-**Areas for contribution:**
-- Calibration history persistence + analytics
-- Real-world tuning and optimization
-- Hardware assets (3D printable mounts, wiring diagrams)
-- Documentation improvements
+See [CONTRIBUTING.md](CONTRIBUTING.md) for secrets management, environment setup, and CI details.
 
-## 📄 License
+## License
 
-This project is licensed under the Apache 2.0 License. See the [LICENSE](LICENSE) file for details.
+Apache 2.0 – see [LICENSE](LICENSE) for details.
 
-## 🔗 Links
+## Helpful Links
 
-- [Project Architecture](docs/ARCHITECTURE.md) - Understand how it works
-- [Hardware Setup](docs/HARDWARE_SETUP.md) - Build the hardware
-- [Development Workflow](docs/DEVELOPMENT_WORKFLOW.md) - Learn the workflow
-- [Troubleshooting](docs/troubleshooting.md) - Solve common issues
-- [GitHub Issues](https://github.com/r-mccarty/bed-presence-sensor/issues) - Report bugs or request features
+- [Architecture](docs/ARCHITECTURE.md)
+- [Development Scorecard](docs/development-scorecard.md)
+- [Development Workflow](docs/DEVELOPMENT_WORKFLOW.md)
+- [Hardware Setup](docs/HARDWARE_SETUP.md)
+- [Quickstart](docs/quickstart.md)
+- [Troubleshooting](docs/troubleshooting.md)
+- [Issues](https://github.com/r-mccarty/presence-dectection-engine/issues)
