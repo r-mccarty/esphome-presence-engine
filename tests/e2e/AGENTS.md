@@ -1,174 +1,55 @@
-# AGENTS.md – End-to-End Integration Tests
+# AGENTS.md – End-to-End Tests
 
-Guidance for agents working on the async pytest suite under `tests/e2e/`. These tests verify the deployed ESPHome device through the Home Assistant WebSocket API. **Always read `../../CLAUDE.md` first**, then consult:
-- `docs/ARCHITECTURE.md` for entity structure and expected behavior
-- `docs/DEVELOPMENT_WORKFLOW.md` for the **critical two-machine workflow**
+Applies to everything under `tests/e2e/`. Review `../../CLAUDE.md` first, then
+reference `docs/DEVELOPMENT_WORKFLOW.md` (two-machine flow) and
+`docs/ARCHITECTURE.md` for entity/behavior expectations.
 
-## ⚠️ CRITICAL: Must Run on ubuntu-node
+## Execution Rules
+- Tests **must** run on `ubuntu-node`. Codespaces cannot reach the HA instance
+  (192.168.0.148) or the ESPHome device.
+- Use the shared virtualenv (`~/.venv-e2e`) and credentials in `~/.env.local`
+  (`HA_URL`, `HA_TOKEN`). Ubuntu-node is the source of truth for these secrets.
+- Ensure the production firmware (Phase 3) is flashed and online before running
+  the suite.
 
-**These tests CANNOT run in Codespaces** due to network isolation from Home Assistant (192.168.0.148).
-
-### Running the Suite (on ubuntu-node only)
-
+## Running the Suite
 ```bash
-# SSH to ubuntu-node
 ssh user@ubuntu-node
-
-# Navigate to test directory
 cd ~/bed-presence-sensor/tests/e2e
-
-# Activate shared venv (already bootstrapped with aiohttp/pytest)
 . ~/.venv-e2e/bin/activate
-
-# Verify .env.local exists with HA credentials
-cat ~/.env.local  # Should contain HA_URL and HA_TOKEN
-
-# Run full test suite
-pytest -v
-
-# Run specific test categories
-pytest -v -k "debounce"    # Debounce timer tests
-pytest -v -k "threshold"   # Threshold configuration tests
-pytest -v -k "calibration" # Calibration tests
+set -a && . ~/.env.local && set +a   # provides HA_URL/HA_TOKEN
+pytest -v                            # full suite
+pytest -v -k calibration             # targeted subset
 ```
 
-> The repository now includes `tests/e2e/hass_ws.py`, a lightweight Home Assistant WebSocket client, so no external `hass_ws` dependency is required.
+## Coverage Expectations
+- Phase 3 entities/services: binary sensor, state/change reason text sensors,
+  runtime knob numbers (thresholds, debounce timers, distance window),
+  MAD calibration services (`calibrate_start_baseline`, `calibrate_reset_all`).
+- Future Phase 3.1+ work (calibration persistence, analytics) should add tests
+  as features land—track gaps in `docs/development-scorecard.md`.
+- Wizard helper flows remain partially manual; document any skipped coverage in
+  `docs/troubleshooting.md`.
 
-## Current Scope (Phase 3)
-- ✅ **Device connectivity**: Verify ESPHome device is online and responsive
-- ✅ **Binary sensor availability**: Check `binary_sensor.bed_presence_detector_bed_occupied` exists
-- ✅ **Runtime threshold controls**: Test k_on/k_off number entities update correctly
-- ✅ **Debounce timer controls**: Test on/off/absolute-clear debounce timers (Phase 2 addition)
-- ✅ **State/change reason telemetry**: Verify text sensors provide z-score diagnostics + reason codes
-- ✅ **ESPHome services**: Test Phase 3 calibration + reset services end-to-end
-- ✅ **Calibration helpers**: Home Assistant wizard helpers + scripts validated
+## Writing & Updating Tests
+- Mirror firmware defaults (`k_on=9.0`, `k_off=4.0`, timers 3s/5s/30s, distance
+  window `[0, 600]`). Update constants when defaults change.
+- Use the shared `hass_ws.py` client; avoid third-party dependencies.
+- Poll for state changes with bounded timeouts; avoid long `sleep()` calls.
+- Reset knobs via `esphome.bed_presence_detector_calibrate_reset_all` between
+  tests to keep runs independent.
+- When adding entities/services in ESPHome, update:
+  1. `tests/e2e/constants.py` (if present) or inline IDs.
+  2. This AGENTS.md file.
+  3. Relevant documentation (`docs/ARCHITECTURE.md`, `docs/quickstart.md`).
 
-## Environment Requirements
+## Debugging Tips
+- Connection failures? Verify HA is reachable (`wscat -c ws://192.168.0.148:8123/api/websocket`)
+  and that the token in `~/.env.local` is valid.
+- Missing entities? Confirm the ESPHome device is online and flashed with the
+  latest firmware; compare IDs with `esphome/packages/presence_engine.yaml`.
+- Flaky timing? Increase debounce timers temporarily or extend polling timeouts,
+  but update assertions afterward so they reflect production behavior.
 
-### Home Assistant Setup
-- **Version**: Home Assistant ≥ 2023.8
-- **Access**: WebSocket API must be accessible from ubuntu-node
-- **Device**: ESPHome device "bed-presence-detector" provisioned and online
-- **Network**: ubuntu-node must be able to reach HA at 192.168.0.148
-
-### Required Entity IDs (Phase 3 Firmware)
-
-**Binary Sensor:**
-- `binary_sensor.bed_presence_detector_bed_occupied` (debounced presence state)
-
-**Configuration Controls:**
-- `number.bed_presence_detector_k_on_on_threshold_multiplier` (default: 9.0)
-- `number.bed_presence_detector_k_off_off_threshold_multiplier` (default: 4.0)
-- `number.bed_presence_detector_on_debounce_timer_ms` (default: 3000)
-- `number.bed_presence_detector_off_debounce_timer_ms` (default: 5000)
-- `number.bed_presence_detector_absolute_clear_delay_ms` (default: 30000)
-- `number.bed_presence_detector_distance_min_cm` (default: 0)
-- `number.bed_presence_detector_distance_max_cm` (default: 600)
-
-**Diagnostic Sensors:**
-- `text_sensor.bed_presence_detector_presence_state_reason` (z-score + state machine info)
-- `text_sensor.bed_presence_detector_presence_change_reason` (last change reason)
-- `sensor.bed_presence_detector_ld2410_still_energy` (raw sensor data)
-
-**ESPHome Services:**
-- `esphome.bed_presence_detector_start_calibration`
-- `esphome.bed_presence_detector_calibrate_start_baseline`
-- `esphome.bed_presence_detector_stop_calibration`
-- `esphome.bed_presence_detector_calibrate_stop`
-- `esphome.bed_presence_detector_reset_to_defaults`
-- `esphome.bed_presence_detector_calibrate_reset_all`
-
-### Credentials Configuration
-
-**Location**: `~/.env.local` on ubuntu-node (NOT in repository)
-
-**Required variables:**
-```bash
-HA_URL=ws://192.168.0.148:8123/api/websocket
-HA_TOKEN=your_long_lived_access_token_here
-```
-
-**⚠️ CRITICAL**: Ubuntu-node is the source of truth for `.env.local`. Never copy FROM Codespaces TO ubuntu-node.
-
-## Writing Tests
-
-### Best Practices
-- **Async patterns**: Use `await asyncio.sleep()` sparingly; prefer polling loops with timeouts for state changes
-- **Fixture defaults**: Always mirror firmware defaults in assertions:
-  - k_on = 9.0, k_off = 4.0
-  - on_debounce = 3000ms, off_debounce = 5000ms, absolute_clear = 30000ms
-  - Baseline: μ = 6.7%, σ = 3.5%
-- **Wizard helpers**: Ensure calibration helper tests remain up-to-date with HA dashboard changes
-- **Test isolation**: Use fixtures to reset thresholds/timers between tests
-- **Entity IDs**: Match exactly with `esphome/packages/presence_engine.yaml`
-- **Documentation sync**: When adding new tests, update this file and `docs/ARCHITECTURE.md`
-
-### Common Test Patterns
-```python
-# Poll for state change with timeout
-async def wait_for_state(client, entity_id, expected_state, timeout=10):
-    start = time.time()
-    while time.time() - start < timeout:
-        state = await client.get_state(entity_id)
-        if state == expected_state:
-            return True
-        await asyncio.sleep(0.5)
-    return False
-
-# Reset device to known state
-@pytest.fixture
-async def reset_defaults(ha_client):
-    await ha_client.call_service(
-        "esphome", "bed_presence_detector_reset_to_defaults"
-    )
-    await asyncio.sleep(1)  # Allow service to complete
-```
-
-### Adding New Tests
-When firmware behavior changes:
-1. Update test assertions to match new defaults
-2. Add tests for new entities (e.g., Phase 3 calibration helpers)
-3. Update entity ID constants if names change
-4. Update this AGENTS.md file with new test scope
-5. Update `docs/ARCHITECTURE.md` testing section
-
-## Troubleshooting
-
-### Connection Issues
-- **"Connection refused"**:
-  - Verify running on ubuntu-node (NOT Codespaces)
-  - Check `~/.env.local` has correct HA_URL and HA_TOKEN
-  - Test HA WebSocket: `wscat -c ws://192.168.0.148:8123/api/websocket`
-  - Confirm Home Assistant is running and accessible
-- **"Authentication failed"**:
-  - Regenerate long-lived access token in HA UI
-  - Update `~/.env.local` with new token
-  - Ensure token has admin privileges
-
-### Entity Issues
-- **"Entity not found"**:
-  - Confirm ESPHome device online in HA UI
-  - Check entity IDs match `esphome/packages/presence_engine.yaml`
-  - Verify firmware has been flashed with latest Phase 3 code
-  - Look for typos in entity ID strings (common: underscores vs hyphens)
-- **"Entity state unexpected"**:
-  - Check ESPHome device logs: `esphome logs bed-presence-detector.yaml`
-  - Verify baseline calibration is correct
-  - Reset device to defaults before test run
-
-### Service Issues
-- **"Service call failed"**:
-  - Check ESPHome logs for error messages
-  - Verify service names match `packages/services_calibration.yaml`
-  - Ensure calibration duration > 0 seconds when invoking start service
-- **"Timeout waiting for service response"**:
-  - Increase timeout in test
-  - Check device isn't busy processing previous request
-  - Verify device WiFi connection is stable
-
-### Test Failures
-- **Flaky tests**: Increase debounce timers or polling intervals
-- **Defaults mismatch**: Check firmware was compiled with latest thresholds
-- **HA wizard tests**: Only skip tests that depend on human interaction (full calibration flow)
-
-For broader context, see `../../AGENTS.md`. For firmware issues, see `../../esphome/AGENTS.md`.
+For additional context return to `../../CLAUDE.md` or the workflow/test sections
+in the documentation set.

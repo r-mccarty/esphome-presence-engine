@@ -1,103 +1,53 @@
 # AGENTS.md – Documentation Directory
 
-Guidelines for agents editing documentation under `docs/`. This directory contains comprehensive technical and operational documentation. **Always consult `../CLAUDE.md` first** – it serves as the primary context map and references the most critical docs below.
+This file covers everything under `docs/`. For repo-wide orientation read
+`../CLAUDE.md` first; it points to the authoritative specs and workflows this
+directory depends on.
 
-## Current Status
-- **Phase 3 is DEPLOYED** and fully operational
-- Documentation reflects production system with 4-state debounced presence detection, distance windowing, and MAD calibration services
+## Before You Edit
+1. **Confirm context** – Re-read `../CLAUDE.md` plus the relevant deep dives
+   (`docs/ARCHITECTURE.md`, `docs/presence-engine-spec.md`,
+   `docs/development-scorecard.md`) so terminology and defaults stay aligned.
+2. **Map ownership** – Historical notes belong in
+   `docs/development-scorecard.md`, workflow/process content in
+   `docs/DEVELOPMENT_WORKFLOW.md`, hardware specifics in
+   `docs/HARDWARE_SETUP.md`, and operator guidance in `docs/quickstart.md`,
+   `docs/calibration.md`, or `docs/troubleshooting.md`. Keep this directory
+   tidy by filing updates in the right document instead of bloating AGENTS.md.
 
-## Document Topology
+## Scope & Expectations
+- Maintain the written source of truth for the Phase 3 firmware and the
+  Phase 3.1+ objectives (calibration persistence, analytics, monitoring).
+- Ensure instructions describe the two-machine workflow (Codespaces ↔
+  ubuntu-node) whenever flashing, HA access, or scripts are mentioned.
+- Keep entity IDs, defaults (`μ=6.7%`, `σ=3.5%`, `k_on=9.0`, etc.), and UI
+  screenshots synchronized with ESPHome + Home Assistant configs.
+- Reference other docs rather than rewriting them here; link using relative
+  paths.
 
-### 🔑 Primary Documentation (Referenced in CLAUDE.md)
-```
-docs/
-├── ARCHITECTURE.md                  # ⭐ Technical design, algorithms, state machine, testing strategy
-├── DEVELOPMENT_WORKFLOW.md          # ⭐ Two-machine workflow (Codespace ↔ ubuntu-node)
-├── HARDWARE_SETUP.md                # ⭐ Hardware specs, wiring, calibration procedures
-├── troubleshooting.md               # ⭐ Common issues, solutions, diagnostic tools
-└── presence-engine-spec.md          # ⭐ Source of truth for 3-phase engineering roadmap
-```
+## Authoring Checklist
+- [ ] Facts reflect the current firmware, HA dashboard, and helper entities.
+- [ ] Phase status is clear (Phase 3 deployed, Phase 3.1+ in flight).
+- [ ] Two-machine steps specify which host runs each command.
+- [ ] Cross-references point to the five flagship docs highlighted in
+      `../CLAUDE.md` when applicable.
+- [ ] Markdown follows project style: ≤120-char lines, fenced code blocks with
+      language hints, warnings formatted as `> **Warning**: ...`.
+- [ ] Related docs/tests were updated (e.g., quickstart + troubleshooting when
+      thresholds or entities change).
 
-### 📚 Supporting Documentation
-```
-docs/
-├── quickstart.md                    # User onboarding and initial setup guide
-├── faq.md                           # Frequently asked questions
-├── calibration.md                   # Manual + planned automated calibration workflows
-├── phase1-completion-steps.md       # Phase 1 verification checklist (historical)
-├── phase2-completion-steps.md       # Phase 2 verification checklist (historical)
-├── gitops-deployment-guide.md       # CI/CD + OTA deployment workflow
-├── self-hosted-runner-setup.md      # GitHub Actions runner instructions
-├── ubuntu-node-setup.md             # Dedicated Ubuntu HA node setup guide
-├── RFD-001-still-vs-moving-energy.md# Design decision: why still energy vs moving
-└── assets/                          # Images, diagrams (some are 0-byte placeholders)
-```
-
-## Authoring Principles
-1. **Accuracy first** – reflect actual firmware defaults and current state:
-   - **Baseline**: μ_still = 6.7%, σ_still = 3.5% (calibrated 2025-11-06)
-   - **Thresholds**: k_on = 9.0, k_off = 4.0
-   - **Debounce timers**: on = 3s, off = 5s, absolute_clear = 30s
-   - **Distance window**: d_min = 0 cm, d_max = 600 cm (tunable)
-   - **Phase 3 is DEPLOYED** (document calibration + distance window behavior)
-2. **Phase markers** – clearly distinguish:
-   - ✅ Phase 1 (Z-score detection) – COMPLETE
-   - ✅ Phase 2 (State machine + debouncing) – DEPLOYED
-   - ✅ Phase 3 (Automated calibration + hardening) – DEPLOYED (wizard + helpers live)
-3. **Audience clarity**:
-   - Engineering specs (ARCHITECTURE.md, presence-engine-spec.md) assume C++/ESPHome expertise
-   - Operator guides (quickstart.md, troubleshooting.md, FAQ) must be accessible to Home Assistant users
-   - Workflow docs (DEVELOPMENT_WORKFLOW.md, HARDWARE_SETUP.md) bridge both audiences
-4. **Update everything** – when behavior changes, update all affected docs:
-   - Technical specs (ARCHITECTURE.md, presence-engine-spec.md)
-   - User guides (quickstart.md, troubleshooting.md, FAQ)
-   - Configuration examples (ESPHome YAML, HA dashboards)
-   - Root docs (README.md, CLAUDE.md)
-   - Tests (unit tests, E2E tests)
-5. **Reference CLAUDE.md structure** – when creating cross-references, prioritize the 5 primary docs that CLAUDE.md highlights
-
-## Style Guide
-- Markdown, 2-space indentation inside lists and code fences, ≤120 character lines.
-- Use fenced code blocks with language hints (` ```yaml`, ` ```cpp`, ` ```bash`).
-- Prefer active voice and present tense.
-- Call out warnings with blockquotes: `> **Warning**: ...`
-- Link to related sections using relative paths (`[Phase 2 checklist](phase2-completion-steps.md)`).
-- Embed images from `assets/` with descriptive alt text.
-
-## Critical Context: Two-Machine Workflow
-
-This project uses a **two-machine workflow** (detailed in DEVELOPMENT_WORKFLOW.md):
-- **Codespaces/Local**: Documentation editing, git operations
-- **ubuntu-node**: Firmware compilation, flashing, Home Assistant API access
-
-When documenting workflows:
-- Clearly indicate which machine each step runs on
-- Provide SSH instructions when steps require ubuntu-node
-- Explain why certain operations require physical hardware access
-- Reference helper scripts on ubuntu-node (`~/sync-and-flash.sh`, `~/flash-firmware.sh`)
-
-## Review Checklist Before Commit
-- [ ] Facts match firmware + HA configuration (entity IDs, defaults, state names)
-- [ ] Phase status correct (Phase 3 DEPLOYED, wizard + helpers documented)
-- [ ] Two-machine workflow clearly explained where relevant
-- [ ] Screenshots/diagrams updated if UI changed
-- [ ] Internal/external links work (use `markdown-link-check` if unsure)
-- [ ] Spelling/grammar checked (`cspell` or editor tools)
-- [ ] Phase references accurate (✅ Phase 1/2/3 complete, next up: persistence/analytics)
-- [ ] Tables + lists render correctly in GitHub preview
-- [ ] Cross-references prioritize the 5 primary docs from CLAUDE.md
-
-## Helpful Commands
+## Useful Commands
 ```bash
-# Lint Markdown (install markdownlint-cli first)
+# Lint markdown (install markdownlint-cli)
 markdownlint docs/**/*.md
 
-# Spell check (install cspell first)
+# Spell check (install cspell)
 cspell "docs/**/*.md"
 
-# Search for outdated values
+# Grep for stale defaults
 rg "k_on" docs/
-rg "Phase 1" docs/
+rg "Phase 3" docs/
 ```
 
-Need repo-wide context? See `../AGENTS.md`.
+Need additional context? Go back to `../CLAUDE.md` (source of truth) or the
+directory-specific documents listed above.
