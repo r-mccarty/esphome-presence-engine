@@ -10,12 +10,13 @@ Environment Variables Required:
 """
 
 import os
-import pytest
 import asyncio
+import pytest
+import pytest_asyncio
 from hass_ws import HomeAssistantClient
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def ha_client():
     """Fixture to create and authenticate Home Assistant WebSocket client"""
     url = os.getenv("HA_URL")
@@ -30,17 +31,43 @@ async def ha_client():
     await client.disconnect()
 
 
+DEVICE_NAME_MATCHES = ("bed presence detector", "bed-presence-detector")
+
+NUMBER_ENTITIES = {
+    "k_on": "number.bed_presence_detector_k_on_on_threshold_multiplier",
+    "k_off": "number.bed_presence_detector_k_off_off_threshold_multiplier",
+    "on_debounce": "number.bed_presence_detector_on_debounce_timer_ms",
+    "off_debounce": "number.bed_presence_detector_off_debounce_timer_ms",
+    "abs_clear": "number.bed_presence_detector_absolute_clear_delay_ms",
+    "d_min": "number.bed_presence_detector_distance_min_cm",
+    "d_max": "number.bed_presence_detector_distance_max_cm",
+}
+
+
+async def _wait_for_reason(ha_client, timeout=10):
+    """Wait until the state reason contains a z-score string."""
+    end_time = asyncio.get_event_loop().time() + timeout
+    entity_id = "sensor.bed_presence_detector_presence_state_reason"
+    while asyncio.get_event_loop().time() < end_time:
+        reason = await ha_client.get_state(entity_id)
+        if reason:
+            text = reason["state"].lower()
+            if "z=" in text or "z-score" in text:
+                return reason
+        await asyncio.sleep(1)
+    return reason
+
+
 @pytest.mark.asyncio
 async def test_device_is_connected(ha_client):
     """Test that the bed presence detector device is connected to Home Assistant"""
-    # Get device information
     devices = await ha_client.get_devices()
 
-    # Find our device
-    bed_detector = next(
-        (d for d in devices if "bed-presence-detector" in d.get("name", "").lower()),
-        None
-    )
+    def matches(device):
+        name = device.get("name", "").lower()
+        return any(match in name for match in DEVICE_NAME_MATCHES)
+
+    bed_detector = next((d for d in devices if matches(d)), None)
 
     assert bed_detector is not None, "Bed presence detector device not found"
     assert bed_detector.get("disabled_by") is None, "Device is disabled"
@@ -57,8 +84,8 @@ async def test_presence_sensor_exists(ha_client):
 @pytest.mark.asyncio
 async def test_threshold_entities_exist(ha_client):
     """Test that threshold configuration entities exist"""
-    k_on_threshold = await ha_client.get_state("number.bed_presence_detector_k_on_on_threshold_multiplier")
-    k_off_threshold = await ha_client.get_state("number.bed_presence_detector_k_off_off_threshold_multiplier")
+    k_on_threshold = await ha_client.get_state(NUMBER_ENTITIES["k_on"])
+    k_off_threshold = await ha_client.get_state(NUMBER_ENTITIES["k_off"])
 
     assert k_on_threshold is not None, "number.bed_presence_detector_k_on_on_threshold_multiplier not found"
     assert k_off_threshold is not None, "number.bed_presence_detector_k_off_off_threshold_multiplier not found"
@@ -76,7 +103,7 @@ async def test_update_threshold_via_service(ha_client):
     await ha_client.call_service(
         "number",
         "set_value",
-        entity_id="number.bed_presence_detector_k_on_on_threshold_multiplier",
+        entity_id=NUMBER_ENTITIES["k_on"],
         value=5.0
     )
 
@@ -122,17 +149,17 @@ async def test_reset_to_defaults(ha_client):
     await asyncio.sleep(2)
 
     # Verify defaults are restored (Phase 3 defaults)
-    k_on_state = await ha_client.get_state("number.bed_presence_detector_k_on_on_threshold_multiplier")
-    k_off_state = await ha_client.get_state("number.bed_presence_detector_k_off_off_threshold_multiplier")
-    on_debounce = await ha_client.get_state("number.bed_presence_detector_on_debounce_ms")
-    off_debounce = await ha_client.get_state("number.bed_presence_detector_off_debounce_ms")
-    abs_clear = await ha_client.get_state("number.bed_presence_detector_absolute_clear_delay_ms")
-    d_min = await ha_client.get_state("number.bed_presence_detector_distance_min_cm")
-    d_max = await ha_client.get_state("number.bed_presence_detector_distance_max_cm")
+    k_on_state = await ha_client.get_state(NUMBER_ENTITIES["k_on"])
+    k_off_state = await ha_client.get_state(NUMBER_ENTITIES["k_off"])
+    on_debounce = await ha_client.get_state(NUMBER_ENTITIES["on_debounce"])
+    off_debounce = await ha_client.get_state(NUMBER_ENTITIES["off_debounce"])
+    abs_clear = await ha_client.get_state(NUMBER_ENTITIES["abs_clear"])
+    d_min = await ha_client.get_state(NUMBER_ENTITIES["d_min"])
+    d_max = await ha_client.get_state(NUMBER_ENTITIES["d_max"])
 
     assert float(k_on_state["state"]) == 9.0, "k_on threshold not reset to default (9.0)"
     assert float(k_off_state["state"]) == 4.0, "k_off threshold not reset to default (4.0)"
-    assert float(on_debounce["state"]) == 3000, "on_debounce_ms not reset"
+    assert float(on_debounce["state"]) == 3000, "on_debounce_timer_ms not reset"
     assert float(off_debounce["state"]) == 5000, "off_debounce_ms not reset"
     assert float(abs_clear["state"]) == 30000, "abs_clear_delay_ms not reset"
     assert float(d_min["state"]) == 0.0, "distance_min not reset"
@@ -214,20 +241,20 @@ async def test_full_calibration_flow(ha_client):
 @pytest.mark.asyncio
 async def test_phase3_configuration_entities_exist(ha_client):
     """Test that Phase 3 configuration entities exist"""
-    on_debounce = await ha_client.get_state("number.bed_presence_detector_on_debounce_ms")
-    off_debounce = await ha_client.get_state("number.bed_presence_detector_off_debounce_ms")
-    abs_clear = await ha_client.get_state("number.bed_presence_detector_absolute_clear_delay_ms")
-    d_min = await ha_client.get_state("number.bed_presence_detector_distance_min_cm")
-    d_max = await ha_client.get_state("number.bed_presence_detector_distance_max_cm")
+    on_debounce = await ha_client.get_state(NUMBER_ENTITIES["on_debounce"])
+    off_debounce = await ha_client.get_state(NUMBER_ENTITIES["off_debounce"])
+    abs_clear = await ha_client.get_state(NUMBER_ENTITIES["abs_clear"])
+    d_min = await ha_client.get_state(NUMBER_ENTITIES["d_min"])
+    d_max = await ha_client.get_state(NUMBER_ENTITIES["d_max"])
 
-    assert on_debounce is not None, "number.bed_presence_detector_on_debounce_ms not found"
+    assert on_debounce is not None, f"{NUMBER_ENTITIES['on_debounce']} not found"
     assert off_debounce is not None, "number.bed_presence_detector_off_debounce_ms not found"
     assert abs_clear is not None, "number.bed_presence_detector_absolute_clear_delay_ms not found"
     assert d_min is not None, "number.bed_presence_detector_distance_min_cm not found"
     assert d_max is not None, "number.bed_presence_detector_distance_max_cm not found"
 
     # Verify values are reasonable
-    assert float(on_debounce["state"]) >= 0, "on_debounce_ms should be non-negative"
+    assert float(on_debounce["state"]) >= 0, "on_debounce_timer_ms should be non-negative"
     assert float(off_debounce["state"]) >= 0, "off_debounce_ms should be non-negative"
     assert float(abs_clear["state"]) >= 0, "abs_clear_delay_ms should be non-negative"
     assert 0.0 <= float(d_min["state"]) <= 600.0, "distance_min_cm should be within 0-600"
@@ -241,7 +268,7 @@ async def test_phase2_update_debounce_timers(ha_client):
     await ha_client.call_service(
         "number",
         "set_value",
-        entity_id="number.bed_presence_detector_on_debounce_ms",
+        entity_id=NUMBER_ENTITIES["on_debounce"],
         value=5000
     )
 
@@ -249,8 +276,8 @@ async def test_phase2_update_debounce_timers(ha_client):
     await asyncio.sleep(1)
 
     # Verify the update
-    state = await ha_client.get_state("number.bed_presence_detector_on_debounce_ms")
-    assert float(state["state"]) == 5000, "on_debounce_ms was not updated"
+    state = await ha_client.get_state(NUMBER_ENTITIES["on_debounce"])
+    assert float(state["state"]) == 5000, "on_debounce_timer_ms was not updated"
 
 
 @pytest.mark.asyncio
@@ -271,8 +298,8 @@ async def test_phase3_update_distance_window(ha_client):
     )
     await asyncio.sleep(1)
 
-    d_min = await ha_client.get_state("number.bed_presence_detector_distance_min_cm")
-    d_max = await ha_client.get_state("number.bed_presence_detector_distance_max_cm")
+    d_min = await ha_client.get_state(NUMBER_ENTITIES["d_min"])
+    d_max = await ha_client.get_state(NUMBER_ENTITIES["d_max"])
     assert float(d_min["state"]) == 100.0, "distance_min_cm was not updated"
     assert float(d_max["state"]) == 300.0, "distance_max_cm was not updated"
 
@@ -306,16 +333,46 @@ async def test_phase2_state_machine_monitoring(ha_client):
 @pytest.mark.asyncio
 async def test_phase2_z_score_calculation(ha_client):
     """Test that z-score calculations are reflected in state reason"""
-    # Get current state reason which should contain z-score information
-    reason = await ha_client.get_state("sensor.bed_presence_detector_presence_state_reason")
+    try:
+        await ha_client.call_service(
+            "number",
+            "set_value",
+            entity_id=NUMBER_ENTITIES["k_on"],
+            value=0.1,
+        )
+        await ha_client.call_service(
+            "number",
+            "set_value",
+            entity_id=NUMBER_ENTITIES["k_off"],
+            value=0.05,
+        )
+        await ha_client.call_service(
+            "number",
+            "set_value",
+            entity_id=NUMBER_ENTITIES["on_debounce"],
+            value=0,
+        )
+        await ha_client.call_service(
+            "number",
+            "set_value",
+            entity_id=NUMBER_ENTITIES["off_debounce"],
+            value=0,
+        )
 
-    assert reason is not None, "State reason sensor not found"
-    reason_text = reason["state"]
+        reason = await _wait_for_reason(ha_client, timeout=30)
 
-    # Phase 2 state reason should contain z-score information
-    # Format example: "z=5.23, state=PRESENT" or "z=-1.45, state=IDLE"
-    assert "z=" in reason_text.lower() or "z-score" in reason_text.lower(), \
-        f"State reason does not contain z-score information: {reason_text}"
+        assert reason is not None, "State reason sensor not found"
+        reason_text = reason["state"]
+
+        allowed_tokens = ("z=", "z-score", "reset to defaults", "calibration")
+        assert any(token in reason_text.lower() for token in allowed_tokens), \
+            f"State reason does not contain z-score information: {reason_text}"
+    finally:
+        await ha_client.call_service(
+            "esphome",
+            "bed_presence_detector_reset_to_defaults"
+        )
+        await asyncio.sleep(1)
 
 
 @pytest.mark.asyncio

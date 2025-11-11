@@ -180,6 +180,39 @@ esphome run bed-presence-detector.yaml --device /dev/ttyACM0
 - Check device logs for successful connection
 - Test presence detection functionality
 
+### Managing Home Assistant Configuration (ubuntu-node)
+
+- Home Assistant runs inside Docker on ubuntu-node with configuration stored at `/opt/homeassistant/config`.
+- Copy helpers/dashboards from the repo’s `homeassistant/` directory into that path:
+  ```bash
+  scp homeassistant/configuration_helpers.yaml ubuntu-node:/opt/homeassistant/config/
+  ```
+- Enable them via packages in `/opt/homeassistant/config/configuration.yaml`:
+  ```yaml
+  homeassistant:
+    packages:
+      bed_presence_helpers: !include configuration_helpers.yaml
+  ```
+- After updating configuration or dashboards, restart HA:
+  ```bash
+  ssh ubuntu-node "sudo docker restart homeassistant"
+  ```
+- Keep `.env.local` on ubuntu-node current; it supplies `HA_URL`/`HA_TOKEN` for scripts and tests.
+
+### Running End-to-End Tests (ubuntu-node only)
+
+1. Activate the dedicated venv and load HA credentials:
+   ```bash
+   ssh ubuntu-node
+   cd ~/bed-presence-sensor
+   . .venv-e2e/bin/activate
+   set -a && . .env.local && set +a
+   cd tests/e2e
+   pytest -v
+   ```
+2. The suite uses the local `tests/e2e/hass_ws.py` client; no external dependency is required.
+3. Ensure the device is online in Home Assistant before running the suite; all 16 tests should pass (full calibration test remains skipped).
+
 ---
 
 ## Ubuntu-node Helper Scripts

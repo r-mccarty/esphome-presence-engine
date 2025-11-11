@@ -125,12 +125,17 @@ This repository's information has been refactored into focused documents. **Alwa
 
 **Testing:**
 - `esphome/test/test_presence_engine.cpp` - 14 comprehensive C++ unit tests (355 lines, all passing)
-- `tests/e2e/test_calibration_flow.py` - Python E2E integration tests
+- `tests/e2e/test_calibration_flow.py` - Python E2E integration tests (run on ubuntu-node inside `~/.venv-e2e`)
+  - Uses the local `tests/e2e/hass_ws.py` WebSocket helper and `.env.local` Home Assistant credentials
+  - Always execute from ubuntu-node so it can reach `http://192.168.0.148:8123`
 
 **Configuration:**
 - `esphome/bed-presence-detector.yaml` - Main ESPHome entry point
 - `esphome/packages/presence_engine.yaml` - Presence engine entities and configuration
 - `esphome/packages/hardware_m5stack_ld2410.yaml` - Hardware-specific UART and GPIO configuration
+- Home Assistant configuration lives on ubuntu-node under `/opt/homeassistant/config`
+  - Include `homeassistant/configuration_helpers.yaml` via `homeassistant.packages.bed_presence_helpers`
+  - Restart the `homeassistant` Docker container after copying helpers/dashboards so HA picks up the changes
 
 ---
 

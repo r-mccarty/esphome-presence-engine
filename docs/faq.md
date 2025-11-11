@@ -194,7 +194,7 @@ binary_sensor:
 - Distance windowing to ignore zones and noisy areas
 - Presence change reason telemetry + reset services
 - Guided Home Assistant calibration wizard with helper entities + scripts
-- **Status**: Deployed 2025-11-08 (wizard shipped 2025-11-xx)
+- **Status**: Deployed 2025-11-08 (wizard shipped 2025-11-10)
 
 ## Calibration Questions
 

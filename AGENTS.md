@@ -31,8 +31,11 @@
    - SSH to ubuntu-node: `ssh user@ubuntu-node`
    - Pull changes: `cd ~/bed-presence-sensor && git pull`
    - Flash firmware: `~/sync-and-flash.sh` or `~/flash-firmware.sh`
-6. **Integration Testing** (on ubuntu-node):
-   - `cd tests/e2e && pytest` (requires Home Assistant access)
+6. **Integration Testing & HA config** (on ubuntu-node):
+   - `cd tests/e2e && ~/.venv-e2e/bin/pytest -v` (requires HA access + `~/.env.local`)
+   - Home Assistant helpers/dashboards live on ubuntu-node under `/opt/homeassistant/config`
+     - Include `homeassistant/configuration_helpers.yaml` via `homeassistant.packages` in `configuration.yaml`
+     - Restart the `homeassistant` Docker container after copying helper files or dashboards
 
 ## Repository Map
 

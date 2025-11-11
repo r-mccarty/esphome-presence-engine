@@ -17,8 +17,8 @@ ssh user@ubuntu-node
 # Navigate to test directory
 cd ~/bed-presence-sensor/tests/e2e
 
-# Install dependencies (first time only)
-pip install -r requirements.txt
+# Activate shared venv (already bootstrapped with aiohttp/pytest)
+. ~/.venv-e2e/bin/activate
 
 # Verify .env.local exists with HA credentials
 cat ~/.env.local  # Should contain HA_URL and HA_TOKEN
@@ -31,6 +31,8 @@ pytest -v -k "debounce"    # Debounce timer tests
 pytest -v -k "threshold"   # Threshold configuration tests
 pytest -v -k "calibration" # Calibration tests
 ```
+
+> The repository now includes `tests/e2e/hass_ws.py`, a lightweight Home Assistant WebSocket client, so no external `hass_ws` dependency is required.
 
 ## Current Scope (Phase 3)
 - ✅ **Device connectivity**: Verify ESPHome device is online and responsive
@@ -57,8 +59,8 @@ pytest -v -k "calibration" # Calibration tests
 **Configuration Controls:**
 - `number.bed_presence_detector_k_on_on_threshold_multiplier` (default: 9.0)
 - `number.bed_presence_detector_k_off_off_threshold_multiplier` (default: 4.0)
-- `number.bed_presence_detector_on_debounce_ms` (default: 3000)
-- `number.bed_presence_detector_off_debounce_ms` (default: 5000)
+- `number.bed_presence_detector_on_debounce_timer_ms` (default: 3000)
+- `number.bed_presence_detector_off_debounce_timer_ms` (default: 5000)
 - `number.bed_presence_detector_absolute_clear_delay_ms` (default: 30000)
 - `number.bed_presence_detector_distance_min_cm` (default: 0)
 - `number.bed_presence_detector_distance_max_cm` (default: 600)

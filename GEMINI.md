@@ -50,21 +50,24 @@ cd esphome
 platformio test -e native
 ```
 
-**Flash Firmware:**
+**Flash Firmware (ubuntu-node only):**
 ```bash
-cd esphome
-esphome run bed-presence-detector.yaml
+ssh ubuntu-node
+~/sync-and-flash.sh   # wraps git pull + esphome run
 ```
-*(Note: Flashing requires physical USB access to the device.)*
+*(Codespaces cannot access the USB-connected ESP32.)*
 
-**Run End-to-End Tests:**
+**Run End-to-End Tests (ubuntu-node):**
 ```bash
+ssh ubuntu-node
+cd ~/bed-presence-sensor
+. .venv-e2e/bin/activate
+set -a && . .env.local && set +a   # provides HA_URL/HA_TOKEN
 cd tests/e2e
-pip install -r requirements.txt
-export HA_URL="ws://<your-ha-instance>:8123/api/websocket"
-export HA_TOKEN="<your-long-lived-access-token>"
-pytest
+pytest -v
 ```
+- Uses the repo’s `tests/e2e/hass_ws.py` WebSocket helper
+- Requires network access to `http://192.168.0.148:8123`
 
 **Linting:**
 ```bash
@@ -75,10 +78,21 @@ black tests/e2e/ scripts/
 ## Development Conventions
 
 *   **Secrets Management:** The project uses two separate secrets files:
-    *   `.env.local` at the project root for Home Assistant API access for Python scripts.
-    *   `esphome/secrets.yaml` for WiFi credentials to be embedded in the firmware.
+    *   `.env.local` at the project root (and copied to ubuntu-node) for Home Assistant API access.
+    *   `esphome/secrets.yaml` on ubuntu-node for WiFi credentials embedded in firmware.
 *   **C++ Style:** Follow ESPHome coding conventions. Update unit tests for any algorithm changes.
 *   **Python Style:** Use Black for formatting. Follow PEP 8 guidelines.
 *   **YAML Style:** Use 2 spaces for indentation. Validate with `yamllint`.
 *   **Testing:** All C++ changes must be accompanied by unit tests. All Python changes should have corresponding end-to-end tests.
 *   **Pull Requests:** PRs should include a clear description of changes, link to related issues, and test results.
+
+## Home Assistant Configuration Notes
+
+* The live Home Assistant instance runs on ubuntu-node (Docker container) with config stored at `/opt/homeassistant/config`.
+* Include `homeassistant/configuration_helpers.yaml` via:
+  ```yaml
+  homeassistant:
+    packages:
+      bed_presence_helpers: !include configuration_helpers.yaml
+  ```
+* After copying helper files or dashboards, restart the container with `sudo docker restart homeassistant`.

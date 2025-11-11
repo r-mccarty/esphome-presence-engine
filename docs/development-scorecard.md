@@ -61,6 +61,8 @@ For detailed historical logs, see `docs/phase1-completion-steps.md` and `docs/ph
   `absolute_clear=30s`, `d_min=0cm`, `d_max=600cm`, baseline μ=6.7%, σ=3.5%.
 - Automated calibration preferred over legacy scripts; ubuntu-node remains source of truth for secrets.
 - Presence change reasons now surfaced in HA for debugging (e.g., `on:threshold_exceeded`).
+- 2025-11-11: Full `tests/e2e/test_calibration_flow.py` suite (16 tests) passing on ubuntu-node using the new `hass_ws` client.
+- Home Assistant helpers (`homeassistant/configuration_helpers.yaml`) deployed via `homeassistant.packages` on ubuntu-node (`/opt/homeassistant/config`), enabling the guided wizard end-to-end.
 
 ### Remaining Capacity / Wishlist
 - Persist calibration history snapshots for auditing + quick rollback.

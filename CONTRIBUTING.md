@@ -298,27 +298,29 @@ platformio test -e native
 
 14 tests covering z-score calculation, state transitions, hysteresis, edge cases.
 
-**Flash to device:**
+**Flash to device (ubuntu-node only):**
 ```bash
-cd esphome
-esphome run bed-presence-detector.yaml
+ssh ubuntu-node
+~/sync-and-flash.sh   # wraps git pull + esphome run with /dev/ttyACM0
 ```
 
-**⚠️ Note:** Flashing requires physical USB access. If using Codespaces, this must be done on ubuntu-node (see DEVELOPMENT_WORKFLOW.md).
+**⚠️ Note:** Flashing requires physical USB access. Always run flashing commands on ubuntu-node.
 
 ---
 
-### End-to-End Tests
+### End-to-End Tests (ubuntu-node)
 
 ```bash
+ssh ubuntu-node
+cd ~/bed-presence-sensor
+. .venv-e2e/bin/activate             # contains aiohttp, pytest, etc.
+set -a && . .env.local && set +a     # provides HA_URL / HA_TOKEN
 cd tests/e2e
-pip install -r requirements.txt  # Install dependencies including homeassistant-api
-export HA_URL="ws://your-ha-instance:8123/api/websocket"
-export HA_TOKEN="your-long-lived-access-token"
-pytest  # Full calibration flow test stays skipped (requires human interaction)
+pytest -v
 ```
 
-**Note:** E2E tests require a live Home Assistant instance with the device connected.
+- The suite uses `tests/e2e/hass_ws.py` (local WebSocket helper) and must run where HA (192.168.0.148) is reachable.
+- `test_full_calibration_flow` stays skipped by design because it requires a physical empty bed.
 
 ---
 
@@ -378,6 +380,18 @@ black tests/e2e/ scripts/
 - Use 2 spaces for indentation
 - Follow ESPHome YAML structure
 - Validate with yamllint before committing
+
+### Home Assistant Configuration
+
+- The production Home Assistant instance runs in Docker on ubuntu-node with config under `/opt/homeassistant/config`.
+- Copy files from `homeassistant/` (dashboards, blueprints, helpers) into that directory and restart with `sudo docker restart homeassistant`.
+- Prefer the `homeassistant.packages` pattern to include helpers:
+  ```yaml
+  homeassistant:
+    packages:
+      bed_presence_helpers: !include configuration_helpers.yaml
+  ```
+- Keep `.env.local` on ubuntu-node in sync with Codespaces; it is the source of truth for HA tokens.
 
 ### Testing Requirements
 
