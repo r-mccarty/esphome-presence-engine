@@ -1,160 +1,134 @@
-# Website Content & Marketing Brief
+# OpticWorks Website Content Brief
 
-**Objective:** To provide the front-end development and marketing teams with the core concepts, value propositions, and technical differentiators of the Bed Presence Sensor project, translated into a compelling narrative for a product landing page. This document is self-contained.
+**Objective:** Deliver a self-contained narrative that equips the brand, content, and front-end
+teams to ship a premium product experience for OpticWorks' mmWave Presence Sensor for Home Assistant.
+The brief translates the business strategy (Brand-Led + Product-Led Growth) into web-ready messaging,
+visual cues, and proof points.
 
 ## 1. Target Audience
 
-- **Primary:** Home Assistant power users and smart home enthusiasts who have been disappointed by the unreliability of existing presence detection solutions (like PIR sensors, bed mats, or basic mmWave sensors).
-- **Secondary:** DIY electronics hobbyists looking for a sophisticated, well-documented project to integrate into their smart home.
-- **Pain Points:**
-    - "My lights turn off while I'm still in bed."
-    - "My automations trigger falsely when my pet jumps on the bed or a fan is on."
-    - "My current presence sensor is a 'black box'; I can't tune it or understand why it fails."
-    - "Camera-based solutions feel like a privacy invasion."
+- **Primary:** Home Assistant power users and smart home enthusiasts who demand rock-solid automation
+  and appreciate thoughtful industrial design.
+- **Secondary:** Design-forward DIY makers and boutique home integrators seeking a standout sensor to
+  showcase in premium installations.
+- **Tertiary:** Reviewers, influencers, and technical writers who can validate OpticWorks' claims
+  through hands-on testing.
+- **Pain Points to Acknowledge:**
+  - "Every presence sensor I've tried is twitchy or opaque."
+  - "I need reliability that matches the polish of the rest of my smart home."
+  - "Setup should feel premium, not like a weekend project." 
+  - "I only advocate products that respect privacy and provide transparent telemetry."
 
 ## 2. Elevator Pitch (The "Hook")
 
-**Tagline:** Stop Detecting Motion. Start Understanding Presence.
+**Tagline:** Presence, Perfected.
 
-**Pitch:** The Bed Presence Sensor isn't just another sensor; it's an intelligent presence *engine* for your smart home. Using a statistical algorithm and temporal filtering, it offers rock-solid, reliable bed occupancy detection that virtually eliminates the false positives and negatives that plague other solutions. No more lights turning off while you're sleeping. No more false alarms from a fan. Just reliable automations, every time.
+**Pitch:** OpticWorks delivers a crafted presence experience that feels as refined as it is reliable.
+Our mmWave engine understands the rhythm of your home, pairing meticulous hardware and a calm,
+confident interface inside Home Assistant. It's the sensor you recommend because it delights in the
+first five minutes and keeps earning trust every night.
 
-## 3. Key Selling Points & Value Propositions
+## 3. Core Story Pillars
 
-These should be the headline features on the landing page.
+1. **Lovable Reliability:** A four-state presence engine with hysteresis, temporal filtering, and
+   absolute clear delay creates deliberate state changes that end "flapping" automations.
+2. **Crafted Premium Experience:** From the machined enclosure to the unboxing ritual, OpticWorks
+   signals quality. Every interaction—from magnetic mounting to the Home Assistant dashboard—feels
+   intentional and elegant.
+3. **Transparent Intelligence:** Live state reasoning (`text_sensor.presence_state_reason`), tunable
+   thresholds (`k_on = 9.0`, `k_off = 4.0`), and still-energy analytics empower enthusiasts to see
+   exactly why decisions are made.
+4. **Privacy You Can Trust:** mmWave sensing plus on-device computation means no cameras, no cloud,
+   and no data handoff.
+5. **Community-Ready Storytelling:** Public documentation, open Home Assistant packages, and a
+   frictionless setup flow invite users to try, fall in love, and advocate.
 
-1.  **Unmatched Reliability:** Our system uses a 4-state machine with temporal debouncing to filter out "noise." It requires a *sustained* change in presence before triggering, ending the "twitchiness" of other sensors.
-2.  **Statistical Intelligence:** We don't just look for energy; we use z-score statistical analysis. The sensor learns the baseline of your empty room and only reacts to statistically significant changes. This makes it resilient to environmental variations.
-3.  **Privacy by Design:** Using mmWave radar, the sensor detects presence without a camera. It knows *that* you're there, not *who* you are. All processing is done on-device with no cloud dependency.
-4.  **Eliminates "Stillness" Errors:** Our innovative "Absolute Clear Delay" feature solves the age-old problem of sensors failing when a person lies perfectly still. The system remembers recent high-confidence presence and won't clear the room prematurely.
-5.  **Fully Tunable & Transparent:** For the power user, every parameter—from statistical thresholds to debounce timers—is adjustable in real-time from the Home Assistant dashboard. A debug text sensor provides full transparency into the engine's state and reasoning.
-6.  **Built for Real-World Conditions:** Our algorithm intentionally focuses on *still energy*, making it immune to false triggers from fans, HVAC systems, and motion outside the bed area—a key differentiator from competitors.
+## 4. Feature Breakdown (Translate to Benefit-Led Copy)
 
-## 4. Feature Breakdown (The "How It Works")
+### Four-State Presence Engine
+- **What:** IDLE → DEBOUNCING_ON → PRESENT → DEBOUNCING_OFF, guarded by dual thresholds and timers.
+- **Why it matters:** Users experience "calm" automations—lights stay on while occupied, clear when
+  genuinely empty.
 
-This section should explain the features in user-benefit terms.
+### Temporal Filtering & Absolute Clear Delay
+- **What:** 3s on-debounce, 5s off-debounce, and 30s absolute clear delay defaults.
+- **Why it matters:** The system waits for conviction, eliminating false clears when someone is lying
+  still and rejecting fleeting spikes from HVAC or pets.
 
-### The 4-State Presence Engine
-- **What it is:** A sophisticated state machine that verifies presence before changing its state.
-- **Why it matters:** It prevents your automations from firing instantly based on transient noise. The sensor verifies that presence is intentional and sustained, filtering out brief movements like walking past the bed or a pet jumping up for a moment.
+### Z-Score Statistical Intelligence
+- **What:** Dynamic baselining with μ=6.7%, σ=3.5%, and z-score thresholds that adapt per room.
+- **Why it matters:** Install once, tune once—the sensor adjusts to different environments without
+  manual recalibration.
 
-### Temporal Filtering (Debounce Timers)
-- **What it is:** Configurable timers that require a signal to be held for a set duration.
-- **Why it matters:** This is the core of our reliability. It ensures the sensor only changes state when it's confident, eliminating the "flapping" or "twitchy" behavior seen in other sensors.
-- **Default Timers:** 3 seconds to turn ON, 5 seconds to turn OFF.
+### Frictionless First Five Minutes
+- **What:** Guided Home Assistant onboarding, automatic entity naming, and pre-built dashboards.
+- **Why it matters:** Aligns with Product-Led Growth—users feel the value before reading the manual,
+  making them more likely to share and recommend.
 
-### The "Absolute Clear Delay"
-- **What it is:** A 30-second (default) cooldown period after the last high-confidence signal before the sensor will even *consider* marking the bed as empty.
-- **Why it matters:** This is our solution for detecting a sleeping, motionless person. Even if your energy signature drops while you're perfectly still, the sensor intelligently waits before clearing, preventing your lights from turning off in the middle of the night.
+### Premium Industrial & Interaction Design
+- **What:** Low-profile enclosure, color-accurate status LED, and magnetic mounting system.
+- **Why it matters:** Reinforces the Brand-Led foundation—OpticWorks looks and feels like a flagship
+  product, not a DIY compromise.
 
-### Z-Score Statistical Analysis
-- **What it is:** Instead of using raw energy values, we calculate how statistically significant a reading is compared to the empty-bed baseline.
-- **Why it matters:** This makes the system incredibly adaptable. It works reliably in different rooms with different hardware because it's not looking for a fixed number, but for a significant *change* from the norm.
+## 5. Proof & Technical Differentiators
 
----
+- **Still-Energy Focus:** Purposefully interprets still energy to detect resting occupants while
+  ignoring oscillating fans or hallway movement.
+- **On-Device, Cloud-Free:** All inference runs on the ESP32. Latency stays low; data stays local.
+- **Debugging Clarity:** Real-time state reason strings and plotted energy charts explain every
+  transition, building confidence for integrators.
+- **Open Yet Polished:** Firmware, dashboards, and documentation are public, inviting community
+  contributions without sacrificing brand standards.
 
-## 5. Deep Dive: The 4-State Presence Engine
+## 6. Brand Voice & Visual Direction
 
-At the heart of our sensor's reliability is a 4-state finite state machine. Unlike simple sensors that are just ON or OFF, our engine moves through four distinct states to verify presence, eliminating false triggers.
+- **Tone:** Confident, serene, and design-forward. Blend technical precision with warm assurance.
+- **Hero Concept:** A split-screen video—on the left, a generic sensor flutters; on the right,
+  OpticWorks calmly reports `binary_sensor.bed_occupied: ON` with an elegant Home Assistant card.
+- **Supporting Visuals:**
+  - Macro photography of the enclosure and unboxing elements.
+  - Animated state machine diagram styled with OpticWorks' palette.
+  - Dashboard screenshots highlighting tunable sliders and state reasons.
+- **Microcopy Guidelines:** Avoid jargon dumps; pair every spec with a benefit. Use active verbs like
+  "crafts," "clarifies," and "invites."
 
-### State Machine Diagram
+## 7. Calls to Action
 
-```
-                     z_still >= k_on
-                ┌─────────────────────┐
-                │                     │
-                ▼                     │
-    ┌───────────────────┐             │
-    │       IDLE        │◄────────────┤
-    │  (Binary: OFF)    │             │
-    └───────────────────┘             │
-                │                     │
-                │ z_still >= k_on     │
-                ▼                     │
-    ┌───────────────────┐             │
-    │  DEBOUNCING_ON    │             │
-    │  (Binary: OFF)    │             │
-    │  Timer running    │             │
-    └───────────────────┘             │
-                │                     │
-     Timer >= on_debounce_ms          │
-      & z_still >= k_on               │
-                │                     │
-                ▼                     │
-    ┌───────────────────┐             │
-    │     PRESENT       │             │
-    │  (Binary: ON)     │             │
-    │  Update high_conf │             │
-    └───────────────────┘             │
-                │                     │
-     z_still < k_off &                │
-     time since high_conf             │
-       >= abs_clear_delay             │
-                │                     │
-                ▼                     │
-    ┌───────────────────┐             │
-    │  DEBOUNCING_OFF   │             │
-    │  (Binary: ON)     │             │
-    │  Timer running    │             │
-    └───────────────────┘             │
-                │                     │
-     Timer >= off_debounce_ms         │
-      & z_still < k_off               │
-                │                     │
-                └─────────────────────┘
+- **Primary CTA:** "Experience OpticWorks" – anchors a self-service purchase or reservation flow.
+- **Secondary CTA:** "Try the Home Assistant Dashboard" – interactive demo or video walkthrough.
+- **Tertiary CTA:** "Read the Technical Architecture" – links to `docs/ARCHITECTURE.md` for deep
+  dives.
+- **Community CTA:** "Share Your Automations" – encourages user-generated content that powers the
+  flywheel.
 
-Reset Conditions (abort debounce):
-- DEBOUNCING_ON → IDLE:    if z_still < k_on (lost signal)
-- DEBOUNCING_OFF → PRESENT: if z_still >= k_on (signal returned)
-```
+## 8. Content & Acquisition Alignment
 
-### How It Works, Step-by-Step:
+- **Product-Led Hooks:** Offer a downloadable Home Assistant package and quickstart video so users
+  can self-onboard and feel delight immediately.
+- **Marketing Amplifiers:** Publish case studies, maker spotlights, and behind-the-scenes design
+  stories to reinforce the brand narrative and fuel social sharing.
+- **Advocacy Loop:** Highlight testimonials, automation blueprints, and integration recipes submitted
+  by the community. Reward contributors with early firmware drops or design previews.
+- **Lifecycle Touchpoints:**
+  - Pre-purchase email series focusing on experience, not specs.
+  - Post-purchase concierge onboarding with checklists and FAQ highlights.
+  - Ongoing firmware notes celebrating incremental polish (e.g., improved still-energy smoothing).
 
-1.  **IDLE:** The bed is empty. The sensor is waiting for a signal that is significantly above the empty-room baseline (`z_still >= k_on`).
-    *   *Default `k_on` threshold: 9.0 (Signal must be 9 standard deviations above the baseline)*
+## 9. Page Architecture (Suggested)
 
-2.  **DEBOUNCING_ON:** A high signal is detected! Instead of turning on immediately, the sensor enters a "verifying" state and starts a timer. The sensor remains OFF to the rest of your smart home.
-    *   *Default `on_debounce_ms` timer: 3,000ms (3 seconds)*
-    *   If the signal disappears during this time, the sensor aborts and goes back to IDLE. No false trigger!
+1. **Hero Block:** Tagline, hero visual, primary CTA, and a three-bullet proof strip (Reliability,
+   Craftsmanship, Privacy).
+2. **Experience Section:** Narrative about the first five minutes with supporting visuals of the
+   dashboard and unboxing.
+3. **How It Works:** Interactive version of the four-state engine and telemetry readout.
+4. **Design Story:** Showcase materials, form factor, and the founder's design philosophy.
+5. **Testimonials & Community:** Quotes, automation recipes, and GitHub stars/social proof.
+6. **Technical Deep Dive:** Expandable specs table, threshold defaults, and integration steps.
+7. **Footer CTAs:** Purchase, documentation, and newsletter sign-up reinforcing the PLG flywheel.
 
-3.  **PRESENT:** The high signal was sustained for the full 3 seconds. The sensor is now confident someone is in bed and finally switches its state to ON for Home Assistant to use. While in this state, it constantly tracks the last time a high-confidence signal was seen.
+## 10. Success Metrics
 
-4.  **DEBOUNCING_OFF:** The person has likely left the bed, and the signal has dropped. But before turning off, two conditions must be met:
-    *   The signal must be below the 'off' threshold (`z_still < k_off`).
-        *   *Default `k_off` threshold: 4.0*
-    *   A special "Absolute Clear Delay" timer must have passed since the last strong presence signal. This is our defense against false negatives when you're lying perfectly still.
-        *   *Default `abs_clear_delay_ms`: 30,000ms (30 seconds)*
-    *   Once both conditions are met, a final "off" debounce timer starts. The sensor is still ON for your smart home during this final check.
-        *   *Default `off_debounce_ms`: 5,000ms (5 seconds)*
-
-5.  **Return to IDLE:** If the low signal is sustained for the full 5-second "off" debounce, the sensor confidently reports the bed is empty and returns to the IDLE state. If presence is detected again during this countdown, it aborts and returns to PRESENT.
-
-This entire process makes the sensor deliberate and resilient, which is why it's the most reliable solution for smart home automation.
-
----
-
-## 6. Technical Differentiators (The "Secret Sauce")
-
-- **Still Energy vs. Moving Energy:**
-    - **The Problem:** Most mmWave sensors react to *any* energy, making them susceptible to fans, air currents, and pets.
-    - **Our Solution:** We made a deliberate engineering decision to use **still energy** as the primary input. A sleeping human is a large, stationary object that reflects a high amount of still energy. A fan is constant motion. By focusing on the former, we gain massive immunity to environmental false positives.
-
-- **On-Device, Cloud-Free Processing:**
-    - **The Problem:** Many smart devices rely on the cloud, introducing latency and privacy concerns.
-    - **Our Solution:** All calculations, from the raw sensor reading to the final binary ON/OFF state, happen locally on the ESP32. This ensures maximum speed, reliability, and privacy.
-
-- **Hysteresis by Design:**
-    - **The Problem:** Sensors can "flap" between ON and OFF when the signal is right on the threshold.
-    - **Our Solution:** We use two separate thresholds: a higher one to turn ON (`k_on = 9.0`) and a lower one to turn OFF (`k_off = 4.0`). This creates a "dead zone" of stability, preventing oscillation.
-
-## 7. Calls to Action (CTA)
-
-- **Primary:** "Buy Now" / "Get Yours Today"
-- **Secondary:** "View Documentation" / "See the Code on GitHub"
-- **Tertiary:** "Read the Full Technical Architecture"
-
-## 8. Visuals & Tone
-
-- **Tone:** Confident, technical but accessible, and focused on reliability. We are solving a real pain point for smart home users.
-- **Hero Image/Video:** A GIF or short video showing the Home Assistant dashboard. On one side, a "generic" sensor flaps on and off. On our side, the `binary_sensor.bed_occupied` remains stable, with the `text_sensor.presence_state_reason` showing the state machine working (e.g., "DEBOUNCING_ON...").
-- **Diagrams:** The State Machine diagram above is highly effective at communicating the "intelligent" nature of the product.
-- **Dashboard Screenshots:** Show the clean, informative Home Assistant dashboard, highlighting the real-time graphs and tunable number sliders.
+- **Activation:** % of visitors who start the Home Assistant onboarding walkthrough.
+- **Advocacy:** Volume of user-generated automations or testimonials submitted post-purchase.
+- **Conversion:** Landing-page-to-purchase (or waitlist) conversion rate.
+- **Engagement:** Average time on page for the How It Works and Design Story sections.
