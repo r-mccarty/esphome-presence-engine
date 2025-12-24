@@ -142,6 +142,120 @@ via Ethernet:
    ip addr add 192.168.1.100/24 dev eth0
    ```
 
+---
+
+## USB Host Mode (for USB Peripherals)
+
+The Luckfox USB-C port is **device-only by default** (for ADB/RNDIS). To connect USB
+peripherals (cameras, storage, etc.), switch to **host mode**.
+
+### Prerequisites
+
+Before switching, set up Ethernet since RNDIS will be lost:
+
+```bash
+# 1. Configure N100 ethernet
+sudo ip addr add 192.168.1.1/24 dev enp1s0
+
+# 2. Configure Luckfox ethernet (via ADB)
+sudo adb shell 'ip addr add 192.168.1.100/24 dev eth0 && ip link set eth0 up'
+
+# 3. Test connectivity
+ping 192.168.1.100
+```
+
+### Enable Host Mode
+
+```bash
+# On Luckfox (via ADB or SSH)
+luckfox-config
+# Navigate: Advanced Options → USB → select "host"
+# Reboot
+```
+
+### Connection Status After Host Mode
+
+| Connection | Status |
+|------------|--------|
+| USB RNDIS | ❌ Lost |
+| ADB | ❌ Lost |
+| Ethernet SSH | ✅ Primary |
+| Serial console | ✅ Backup |
+
+---
+
+## Power via GPIO Header
+
+When USB-C is in host mode, it cannot provide power. Use GPIO header pins instead.
+
+### Power Pinout
+
+| Pin | Name | Description |
+|-----|------|-------------|
+| 36 | VBUS | 5V output (device mode only) |
+| 38 | GND | Ground |
+| **39** | **VSYS** | **5V input (recommended)** |
+| 40 | GND | Ground |
+
+### Wiring
+
+```
+5V USB Power Adapter                    Luckfox Pico Max
+┌─────────────────┐                    ┌─────────────────┐
+│                 │                    │   GPIO Header   │
+│    +5V (Red) ───┼────────────────────┼──► Pin 39 (VSYS)│
+│                 │                    │                 │
+│    GND (Black)──┼────────────────────┼──► Pin 38 (GND) │
+│                 │                    │                 │
+└─────────────────┘                    └─────────────────┘
+```
+
+> **Warning**: Double-check polarity before connecting. Reversing power will damage the board.
+
+### Requirements
+
+- 5V 2A USB power adapter (or better)
+- Dupont jumper wires (F-F) or spliced USB cable
+
+---
+
+## Complete USB Host Setup
+
+For connecting USB cameras or other peripherals:
+
+```
+┌──────────────┐    Ethernet       ┌─────────────────────────────┐
+│    N100      ├───────────────────┤      Luckfox Pico Max       │
+│ 192.168.1.1  │                   │      192.168.1.100          │
+└──────────────┘                   │                             │
+                                   │  USB-C ──► OTG ──► USB Cam  │
+┌──────────────┐   Pin 39 + 38     │                             │
+│  5V Power    ├───────────────────┤  GPIO Header (Power In)     │
+└──────────────┘                   └─────────────────────────────┘
+```
+
+### Quick Start
+
+```bash
+# 1. Set up ethernet (while still in device mode)
+sudo ip addr add 192.168.1.1/24 dev enp1s0
+sudo adb shell 'ip addr add 192.168.1.100/24 dev eth0 && ip link set eth0 up'
+
+# 2. Enable USB host mode
+sudo adb shell 'luckfox-config'
+# Select: Advanced Options → USB → host → Reboot
+
+# 3. Power off, then connect:
+#    - 5V power to Pin 39 (VSYS) + Pin 38 (GND)
+#    - USB peripheral via USB-C OTG adapter
+#    - Ethernet cable
+
+# 4. Power on and access via SSH
+ssh root@192.168.1.100
+```
+
+---
+
 ## Troubleshooting
 
 ### Interface Not Appearing
