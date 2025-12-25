@@ -197,7 +197,32 @@ When USB-C is in host mode, it cannot provide power. Use GPIO header pins instea
 | **39** | **VSYS** | **5V input (recommended)** |
 | 40 | GND | Ground |
 
-### Wiring
+### Power Requirements
+
+| Device | Current Draw | Notes |
+|--------|-------------|-------|
+| Luckfox Pico Max (active) | ~180mA | With camera + encoding |
+| USB Camera | ~100-200mA | Typical |
+| **Total** | **~330mA** | Under USB 3.0 limit (900mA) |
+
+### Option A: Spliced USB Cable from N100 (Recommended)
+
+No separate power adapter needed - use an N100 USB-A port:
+
+```
+USB-A Cable (cut off device end)        Luckfox Pico Max
+┌─────────────────┐                    ┌─────────────────┐
+│  Red (+5V) ─────┼────────────────────┼──► Pin 39 (VSYS)│
+│  Black (GND) ───┼────────────────────┼──► Pin 38 (GND) │
+│  Green (D+) ────┼── (do not connect) │                 │
+│  White (D-) ────┼── (do not connect) │                 │
+└─────────────────┘                    └─────────────────┘
+        ▲
+        │
+   N100 Front USB-A Port
+```
+
+### Option B: Separate 5V Adapter
 
 ```
 5V USB Power Adapter                    Luckfox Pico Max
@@ -211,11 +236,6 @@ When USB-C is in host mode, it cannot provide power. Use GPIO header pins instea
 ```
 
 > **Warning**: Double-check polarity before connecting. Reversing power will damage the board.
-
-### Requirements
-
-- 5V 2A USB power adapter (or better)
-- Dupont jumper wires (F-F) or spliced USB cable
 
 ---
 
