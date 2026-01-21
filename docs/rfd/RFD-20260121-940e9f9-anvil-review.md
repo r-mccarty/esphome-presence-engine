@@ -11,32 +11,39 @@
 ## Summary
 
 This commit adds a cleanup step in the anvil-review workflow to delete a stale
-`.git/index.lock` before fetching and checking out the target SHA. The intent is
-preventing the workflow from failing when a previous git process left a lock
-file behind.
+`.git/index.lock` before fetching and checking out the target SHA. The intent is to
+prevent the workflow from failing when a previous git process left a lock file
+behind.
 
 ---
 
 ## Findings
 
-### 1. MEDIUM: Lock Removal Can Mask Active Git Operations
+### 1. LOW: Lock removal does not verify the lock is stale
 
 **File:** `.github/workflows/anvil-review.yml`
-**Lines:** 95-97
+**Line:** 95-97
 
-**Risk:** The workflow unconditionally removes `.git/index.lock` if it exists. If
-another git process is running in the same workspace (for example, a concurrent
-job or a hung but still-active process), deleting the lock can lead to index
-corruption or partial writes. This is a low-likelihood scenario in CI, but the
-workflow targets a shared path (`/home/sprite/workspace/${REPO_NAME}`), which
-makes concurrency a non-zero risk.
+The workflow deletes `.git/index.lock` unconditionally when present. If another
+git process is actively running in the same workspace, removing the lock can
+corrupt repository state or interrupt the in-flight operation. The workflow
+likely runs single-threaded in CI, so this is a low-probability risk, but it is
+still a sharp edge without a guard.
+
+### 2. INFO: No visibility when a lock is cleared
+
+**File:** `.github/workflows/anvil-review.yml`
+**Line:** 95-97
+
+The removal happens silently. If a stale lock appears repeatedly, there is no
+log signal to indicate the cleanup is occurring, which can make diagnosing the
+underlying cause harder.
 
 ---
 
 ## Recommended Actions
 
-1. Before deleting `.git/index.lock`, add a guard to ensure no git process is
-   active in the repo (for example, check `lsof`/`fuser` on the lock file or
-   verify no `git` process owns that directory).
-2. Log when the lock is removed so failures can be correlated to cleanup actions
-   during workflow troubleshooting.
+1. Verify the lock is stale before deletion (for example, ensure no git process
+   is running or retry `git fetch` once before removing the lock).
+2. Add a short log line when a lock is cleared so repeated lock incidents are
+   visible in CI logs.
